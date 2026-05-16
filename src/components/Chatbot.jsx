@@ -24,7 +24,7 @@ const FRUIT_DATABASE = {
   },
   banana: {
     name: "Banana (Musa sapientum)",
-    image: "https://images.unsplash.com/photo-1571771894821-ad99026.12.18?q=80&w=400&auto=format&fit=crop",
+    image: "https://images.unsplash.com/photo-1603833665314-be1ff1e64a9a?q=80&w=400&auto=format&fit=crop",
     color: "#ffb700",
     summary: "A tropical fruit rich in carbohydrates and potassium, essential for muscle and nerve function.",
     benefits: [

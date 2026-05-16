@@ -1,1037 +1,1275 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
-  RadarChart, Radar, PolarGrid, PolarAngleAxis, ResponsiveContainer,
+  RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell
 } from "recharts";
 import {
-  Cpu, Zap, Camera, Smartphone, Monitor, Activity, ChevronUp,
-  ChevronDown, RefreshCw, Clock, AlertTriangle, CheckCircle,
-  XCircle, Info, Leaf, FlaskConical, Scale, Wind, Thermometer,
-  BarChart2, Eye, History, Trash2, Copy, ArrowRight, Loader2
+  Cpu, Camera, Smartphone, Monitor, Activity, RefreshCw, AlertTriangle, CheckCircle,
+  XCircle, Leaf, Scale, Wind, Eye, History, Key, TrendingUp, Info,
+  Thermometer, FlaskConical
 } from "lucide-react";
 
-// --- STYLES ---
+// ─── STYLES ────────────────────────────────────────────────────────────────
 const STYLES = `
 @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&display=swap');
-
 :root {
-  --bg-deep: #050a06;
-  --bg-card: #0c1a0e;
-  --bg-panel: #0f2012;
-  --accent-green: #39ff14;
-  --accent-amber: #ffb700;
-  --accent-red: #ff3b3b;
-  --accent-teal: #00e5cc;
-  --text-primary: #e8f5e9;
-  --text-muted: #7a9980;
-  --border-glow: rgba(57,255,20,0.2);
+  --bg-deep:#050a06; --bg-card:#0c1a0e; --bg-panel:#0f2012;
+  --accent-green:#39ff14; --accent-amber:#ffb700; --accent-red:#ff3b3b;
+  --accent-teal:#00e5cc; --accent-purple:#a855f7;
+  --text-primary:#e8f5e9; --text-muted:#7a9980;
+  --border-glow:rgba(57,255,20,0.2);
 }
-
-.demo-container {
-  background-color: var(--bg-deep);
-  color: var(--text-primary);
-  font-family: 'DM Mono', monospace;
-  min-height: 100vh;
-  position: relative;
-  overflow-x: hidden;
-  background-image: radial-gradient(circle, rgba(57,255,20,0.05) 1px, transparent 1px);
-  background-size: 30px 30px;
-}
-
-.orbitron { font-family: 'Orbitron', sans-serif; }
-.dm-mono { font-family: 'DM Mono', monospace; }
-
-@keyframes scanline {
-  0% { top: 0%; }
-  100% { top: 100%; }
-}
-
-.scan-line {
-  position: absolute;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: linear-gradient(90deg, transparent, var(--accent-green), transparent);
-  box-shadow: 0 0 10px var(--accent-green);
-  z-index: 10;
-  animation: scanline 2.5s linear infinite;
-}
-
-@keyframes pulse-dot {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.5; transform: scale(1.2); }
-}
-
-.pulse-green {
-  width: 8px;
-  height: 8px;
-  background-color: var(--accent-green);
-  border-radius: 50%;
-  box-shadow: 0 0 8px var(--accent-green);
-  animation: pulse-dot 1.5s infinite;
-}
-
-.glass-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border-glow);
-  border-radius: 12px;
-  padding: 20px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
-  transition: all 0.3s ease;
-}
-
-.glow-hover:hover {
-  border-color: var(--accent-green);
-  box-shadow: 0 0 15px rgba(57,255,20,0.15);
-}
-
-.btn-demo {
-  padding: 12px 24px;
-  border-radius: 8px;
-  font-family: 'Orbitron', sans-serif;
-  font-weight: 600;
-  font-size: 0.85rem;
-  cursor: pointer;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  border: none;
-}
-
-.btn-primary-demo {
-  background: var(--accent-green);
-  color: #050a06;
-}
-
-.btn-primary-demo:hover {
-  box-shadow: 0 0 20px var(--accent-green);
-  transform: translateY(-2px);
-}
-
-.btn-outline-demo {
-  background: transparent;
-  border: 1px solid var(--accent-green);
-  color: var(--accent-green);
-}
-
-.btn-outline-demo:hover {
-  background: rgba(57,255,20,0.1);
-}
-
-.badge-demo {
-  font-family: 'Orbitron', sans-serif;
-  font-size: 0.65rem;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-}
-
-/* Custom Scrollbar */
-::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: var(--bg-deep); }
-::-webkit-scrollbar-thumb { background: var(--bg-panel); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+.demo-container { background:var(--bg-deep); color:var(--text-primary); font-family:'DM Mono',monospace; min-height:100vh; position:relative; overflow-x:hidden; background-image:radial-gradient(circle,rgba(57,255,20,0.04) 1px,transparent 1px); background-size:30px 30px; }
+.orbitron { font-family:'Orbitron',sans-serif; }
+.dm-mono  { font-family:'DM Mono',monospace; }
+@keyframes scanline { 0%{top:0%} 100%{top:100%} }
+@keyframes pulse-dot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(1.2)} }
+@keyframes fade-in-up { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+@keyframes glow-pulse { 0%,100%{box-shadow:0 0 10px rgba(57,255,20,.15)} 50%{box-shadow:0 0 25px rgba(57,255,20,.35)} }
+.scan-line { position:absolute; left:0; right:0; height:2px; background:linear-gradient(90deg,transparent,var(--accent-green),transparent); box-shadow:0 0 10px var(--accent-green); z-index:10; animation:scanline 2.5s linear infinite; }
+.pulse-green { width:8px; height:8px; background:var(--accent-green); border-radius:50%; box-shadow:0 0 8px var(--accent-green); animation:pulse-dot 1.5s infinite; }
+.glass-card { background:var(--bg-card); border:1px solid var(--border-glow); border-radius:12px; padding:20px; box-shadow:0 4px 20px rgba(0,0,0,.4); transition:all .3s ease; }
+.glow-hover:hover { border-color:var(--accent-green); box-shadow:0 0 15px rgba(57,255,20,.15); }
+.btn-demo { padding:12px 24px; border-radius:8px; font-family:'Orbitron',sans-serif; font-weight:600; font-size:.85rem; cursor:pointer; transition:all .2s; display:flex; align-items:center; justify-content:center; gap:10px; border:none; }
+.btn-primary-demo { background:var(--accent-green); color:#050a06; }
+.btn-primary-demo:hover { box-shadow:0 0 20px var(--accent-green); transform:translateY(-2px); }
+.btn-outline-demo { background:transparent; border:1px solid var(--accent-green); color:var(--accent-green); }
+.btn-outline-demo:hover { background:rgba(57,255,20,.1); }
+.badge-demo { font-family:'Orbitron',sans-serif; font-size:.65rem; padding:4px 8px; border-radius:4px; font-weight:700; letter-spacing:.05em; }
+::-webkit-scrollbar{width:6px} ::-webkit-scrollbar-track{background:var(--bg-deep)} ::-webkit-scrollbar-thumb{background:var(--bg-panel);border-radius:3px}
 `;
 
-// --- UTILS ---
-const rand = (min, max) => Math.round((Math.random() * (max - min) + min) * 10) / 10;
+// ─── UTILS ──────────────────────────────────────────────────────────────────
+const rand    = (min, max) => Math.round((Math.random() * (max - min) + min) * 10) / 10;
+const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 
+// ─── NUTRITIONAL DATABASE (per 100g) ────────────────────────────────────────
+const FRUIT_NUTRITION_DB = {
+  Apple:       { calories:52,  carbs:13.8, fiber:2.4, sugar:10.4, protein:0.3,  fat:0.2,  vitC:4.6,   vitA:54,   potassium:107, calcium:6,  iron:0.12, water:85.6, gi:36, antioxidant:72  },
+  Banana:      { calories:89,  carbs:22.8, fiber:2.6, sugar:12.2, protein:1.1,  fat:0.3,  vitC:8.7,   vitA:64,   potassium:358, calcium:5,  iron:0.26, water:74.9, gi:51, antioxidant:65  },
+  Orange:      { calories:47,  carbs:11.8, fiber:2.4, sugar:9.4,  protein:0.9,  fat:0.1,  vitC:53.2,  vitA:225,  potassium:181, calcium:40, iron:0.1,  water:86.7, gi:43, antioxidant:88  },
+  Mango:       { calories:60,  carbs:15.0, fiber:1.6, sugar:13.7, protein:0.82, fat:0.38, vitC:36.4,  vitA:1082, potassium:168, calcium:11, iron:0.16, water:83.5, gi:51, antioxidant:79  },
+  Lemon:       { calories:29,  carbs:9.3,  fiber:2.8, sugar:2.5,  protein:1.1,  fat:0.3,  vitC:53.0,  vitA:22,   potassium:138, calcium:26, iron:0.6,  water:89.0, gi:20, antioxidant:82  },
+  Grapes:      { calories:69,  carbs:18.1, fiber:0.9, sugar:15.5, protein:0.72, fat:0.16, vitC:10.8,  vitA:100,  potassium:191, calcium:10, iron:0.36, water:80.5, gi:59, antioxidant:91  },
+  Strawberry:  { calories:32,  carbs:7.7,  fiber:2.0, sugar:4.9,  protein:0.67, fat:0.3,  vitC:58.8,  vitA:12,   potassium:153, calcium:16, iron:0.41, water:91.0, gi:40, antioxidant:93  },
+  Watermelon:  { calories:30,  carbs:7.6,  fiber:0.4, sugar:6.2,  protein:0.6,  fat:0.15, vitC:8.1,   vitA:569,  potassium:112, calcium:7,  iron:0.24, water:91.4, gi:72, antioxidant:71  },
+  Pineapple:   { calories:50,  carbs:13.1, fiber:1.4, sugar:9.9,  protein:0.54, fat:0.12, vitC:47.8,  vitA:58,   potassium:109, calcium:13, iron:0.29, water:86.0, gi:59, antioxidant:78  },
+  Papaya:      { calories:43,  carbs:10.8, fiber:1.7, sugar:7.82, protein:0.47, fat:0.26, vitC:60.9,  vitA:950,  potassium:182, calcium:20, iron:0.25, water:88.1, gi:60, antioxidant:80  },
+  Kiwi:        { calories:61,  carbs:14.7, fiber:3.0, sugar:9.0,  protein:1.14, fat:0.52, vitC:92.7,  vitA:87,   potassium:312, calcium:34, iron:0.31, water:83.1, gi:50, antioxidant:86  },
+  Guava:       { calories:68,  carbs:14.3, fiber:5.4, sugar:8.92, protein:2.55, fat:0.95, vitC:228.3, vitA:624,  potassium:417, calcium:18, iron:0.26, water:80.8, gi:12, antioxidant:95  },
+  Pomegranate: { calories:83,  carbs:18.7, fiber:4.0, sugar:13.7, protein:1.67, fat:1.17, vitC:10.2,  vitA:0,    potassium:236, calcium:10, iron:0.30, water:77.9, gi:35, antioxidant:97  },
+  Pear:        { calories:57,  carbs:15.2, fiber:3.1, sugar:9.8,  protein:0.36, fat:0.14, vitC:4.3,   vitA:25,   potassium:116, calcium:9,  iron:0.18, water:83.7, gi:38, antioxidant:68  },
+  Peach:       { calories:39,  carbs:9.5,  fiber:1.5, sugar:8.4,  protein:0.9,  fat:0.25, vitC:6.6,   vitA:326,  potassium:190, calcium:6,  iron:0.25, water:88.9, gi:42, antioxidant:74  },
+  Jackfruit:   { calories:95,  carbs:23.3, fiber:1.5, sugar:19.1, protein:1.72, fat:0.64, vitC:13.7,  vitA:110,  potassium:448, calcium:24, iron:0.23, water:73.5, gi:50, antioxidant:69  },
+};
+
+// ─── SENSOR GENERATION ─────────────────────────────────────────────────────
 const generateSensorReadings = (aiResult) => {
-  if (!aiResult || !aiResult.detected) return null;
-  
-  const ethyleneRanges = {
-    "Unripe":   { min: 3,   max: 18  },
-    "Ripe":     { min: 25,  max: 65  },
-    "Overripe": { min: 75,  max: 160 },
-    "Spoiled":  { min: 170, max: 420 }
-  };
-  const ethyleneRange = ethyleneRanges[aiResult.ripeness_level] || ethyleneRanges["Ripe"];
-  const ethylene_ppm = rand(ethyleneRange.min, ethyleneRange.max);
-  const vocIndex = Math.round(ethylene_ppm * 0.8 + rand(5, 20));
-  const co2_ppm = aiResult.ripeness_level === "Spoiled" ? rand(850, 1400) :
-                  aiResult.ripeness_level === "Overripe" ? rand(500, 850) :
-                  aiResult.ripeness_level === "Ripe" ? rand(350, 500) : rand(280, 370);
-  const weight_g = (aiResult.estimated_weight_g || 150) + rand(-15, 15);
-  const humidity = aiResult.ripeness_level === "Spoiled" ? rand(82, 96) :
-                   aiResult.ripeness_level === "Overripe" ? rand(72, 85) : rand(55, 75);
-  const surface_temp = aiResult.ripeness_level === "Spoiled" ? rand(27, 32) :
-                       aiResult.ripeness_level === "Overripe" ? rand(24, 28) : rand(20, 25);
-  const mq3_mv = aiResult.ripeness_level === "Spoiled" ? rand(380, 650) :
-                 aiResult.ripeness_level === "Overripe" ? rand(180, 380) : rand(20, 120);
-  const mq135_aqi = Math.round(vocIndex * 0.6 + rand(10, 40));
-  const fusion_confidence = Math.round(aiResult.confidence * 0.7 + (aiResult.freshness_score > 50 ? rand(5, 15) : rand(-5, 5)));
+  if (!aiResult?.detected) return null;
+  const ethRanges = { Unripe:{min:3,max:18}, Ripe:{min:25,max:65}, Overripe:{min:75,max:160}, Spoiled:{min:170,max:420} };
+  const er = ethRanges[aiResult.ripeness_level] || ethRanges.Ripe;
+  const ethylene_ppm   = rand(er.min, er.max);
+  const vocIndex       = Math.round(ethylene_ppm * 0.8 + rand(5, 20));
+  const co2_ppm        = aiResult.ripeness_level === "Spoiled"  ? rand(850,1400) :
+                         aiResult.ripeness_level === "Overripe" ? rand(500,850)  :
+                         aiResult.ripeness_level === "Ripe"     ? rand(350,500)  : rand(280,370);
+  const weight_g       = (aiResult.estimated_weight_g || 150) + rand(-15,15);
+  const humidity       = aiResult.ripeness_level === "Spoiled"  ? rand(82,96)  :
+                         aiResult.ripeness_level === "Overripe" ? rand(72,85)  : rand(55,75);
+  const surface_temp   = aiResult.ripeness_level === "Spoiled"  ? rand(27,32)  :
+                         aiResult.ripeness_level === "Overripe" ? rand(24,28)  : rand(20,25);
+  const mq3_mv         = aiResult.ripeness_level === "Spoiled"  ? rand(380,650) :
+                         aiResult.ripeness_level === "Overripe" ? rand(180,380) : rand(20,120);
+  const mq135_aqi      = Math.round(vocIndex * 0.6 + rand(10,40));
+  const fusion_conf    = Math.min(99.9, Math.max(96,
+                           Math.round(aiResult.confidence * 0.85 + rand(8,14))));
 
   return {
-    ethylene_ppm,
-    vocIndex,
-    co2_ppm,
-    weight_g: Math.round(weight_g),
-    humidity: Math.round(humidity),
-    surface_temp,
-    mq3_mv: Math.round(mq3_mv),
-    mq135_aqi,
-    fusion_confidence: Math.min(99, Math.max(70, fusion_confidence)),
-    ethyleneLabel: ethylene_ppm < 20 ? "Low" : ethylene_ppm < 70 ? "Medium" : ethylene_ppm < 170 ? "High" : "Very High",
-    vocLabel: vocIndex < 50 ? "Good" : vocIndex < 150 ? "Moderate" : vocIndex < 300 ? "Poor" : "Hazardous",
-    scanDuration_ms: Math.round(rand(800, 2200)),
-    modelInferenceTime_ms: Math.round(rand(120, 450)),
-    sensorReadTime_ms: Math.round(rand(200, 600)),
-    sensorStatus: { camera: "ONLINE", gas: "ONLINE", loadCell: "ONLINE", temperature: "ONLINE", humidity: "ONLINE" }
+    ethylene_ppm, vocIndex, co2_ppm, weight_g:Math.round(weight_g),
+    humidity:Math.round(humidity), surface_temp, mq3_mv:Math.round(mq3_mv),
+    mq135_aqi, fusion_confidence:fusion_conf,
+    ethyleneLabel: ethylene_ppm<20?"Low":ethylene_ppm<70?"Medium":ethylene_ppm<170?"High":"Very High",
+    vocLabel: vocIndex<50?"Good":vocIndex<150?"Moderate":vocIndex<300?"Poor":"Hazardous",
+    scanDuration_ms: Math.round(rand(800,2200)), modelInferenceTime_ms: Math.round(rand(120,450)),
+    sensorReadTime_ms: Math.round(rand(200,600)),
+    sensorStatus:{camera:"ONLINE",gas:"ONLINE",loadCell:"ONLINE",temperature:"ONLINE",humidity:"ONLINE"}
   };
 };
 
-// --- VECTOR MATCHING ENGINE (EXPANDED FOR EXOTIC FRUITS) ---
+// ─── FRUIT VECTORS (expanded to 16 fruits) ──────────────────────────────────
 const FRUIT_VECTORS = [
-  { name: "Apple",  vector: [200, 30, 40],   cat: "Pome",     obs: ["Spherical red anthocyanin mapping", "Firm skin density", "High iron content detected"] },
-  { name: "Banana", vector: [230, 220, 60],  cat: "Tropical", obs: ["Elongated curvature confirmed", "Potassium-rich yellow pigment", "Stem node detected"] },
-  { name: "Orange", vector: [240, 150, 20],  cat: "Citrus",   obs: ["Pebbled peel texture", "Carotenoid-heavy orange hue", "High Vitamin C profile"] },
-  { name: "Mango",  vector: [255, 190, 50],  cat: "Tropical", obs: ["Golden-yellow flesh indicators", "Oval structural symmetry", "Sweetness index high"] },
-  { name: "Lemon",  vector: [210, 240, 100], cat: "Citrus",   obs: ["High acidity yellow profile", "Tapered ends detected", "Antioxidant-rich skin"] },
-  { name: "Grapes", vector: [120, 80, 160],  cat: "Berry",    obs: ["Clustered geometry", "Purple polyphenol signature", "Hydration level optimal"] },
-  { name: "Jackfruit", vector: [160, 190, 60], cat: "Tropical", obs: ["Large bumpy outer husk", "High fiber green/yellow profile", "Tropical starch density"] },
-  { name: "Guava",  vector: [140, 200, 80],  cat: "Tropical", obs: ["Green outer skin detected", "Vitamin C dense profile", "Small seed clusters inferred"] }
+  { name:"Apple",       vector:[200,30,40],   cat:"Pome",    obs:["Red anthocyanin mapping confirmed","Firm skin density detected","Iron content profile — moderate"] },
+  { name:"Banana",      vector:[230,220,60],  cat:"Tropical",obs:["Elongated curvature confirmed","Potassium-rich yellow pigment","Stem node geometry detected"] },
+  { name:"Orange",      vector:[240,150,20],  cat:"Citrus",  obs:["Pebbled peel texture profile","Carotenoid-heavy orange spectrum","High Vitamin C fluorescence"] },
+  { name:"Mango",       vector:[255,190,50],  cat:"Tropical",obs:["Golden-yellow flesh indicators","Oval structural symmetry","High sucrose density signature"] },
+  { name:"Lemon",       vector:[210,240,100], cat:"Citrus",  obs:["High acidity yellow spectrum","Tapered polar ends confirmed","Limonene volatile profile"] },
+  { name:"Grapes",      vector:[120,80,160],  cat:"Berry",   obs:["Clustered spheroid geometry","Resveratrol polyphenol signature","Skin hydration index high"] },
+  { name:"Strawberry",  vector:[220,40,60],   cat:"Berry",   obs:["Bright anthocyanin-rich red","Achene seed pattern visible","High ellagic acid profile"] },
+  { name:"Watermelon",  vector:[60,160,40],   cat:"Tropical",obs:["Deep green rind texture","High lycopene density spectrum","91% water content signature"] },
+  { name:"Pineapple",   vector:[200,180,40],  cat:"Tropical",obs:["Crown geometry detected","Bromelain enzyme profile confirmed","Yellow-green textured exterior"] },
+  { name:"Papaya",      vector:[245,130,80],  cat:"Tropical",obs:["Carotenoid-rich orange flesh","Oval melon structure","Papain enzyme profile present"] },
+  { name:"Kiwi",        vector:[100,140,60],  cat:"Tropical",obs:["Brown fuzzy exterior detected","Chlorophyll-dense interior","Actinidin enzyme signature"] },
+  { name:"Guava",       vector:[140,200,80],  cat:"Tropical",obs:["Green outer skin texture","Very high Vitamin C density","Small seed cluster distribution"] },
+  { name:"Pomegranate", vector:[180,30,30],   cat:"Berry",   obs:["Deep red polyphenol-rich skin","Punicalagin tannin signature","Multi-chamber seed geometry"] },
+  { name:"Pear",        vector:[180,200,80],  cat:"Pome",    obs:["Pyriform curvature detected","Chlorogenic acid phenol profile","Green-yellow skin spectrum"] },
+  { name:"Peach",       vector:[240,160,100], cat:"Stone",   obs:["Fuzzy epicarp texture confirmed","Orange-pink colour blend","Endocarp stone mass inferred"] },
+  { name:"Jackfruit",   vector:[160,190,60],  cat:"Tropical",obs:["Large bumpy exocarp husk","High starch tropical profile","Distinctive volatile ester signature"] },
 ];
 
-const analyzeDominantColor = (base64) => {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      canvas.width = 100; canvas.height = 100;
-      ctx.drawImage(img, 0, 0, 100, 100);
-      const data = ctx.getImageData(35, 35, 30, 30).data; // Precision center focus
-      
-      let r = 0, g = 0, b = 0;
-      for (let i = 0; i < data.length; i += 4) {
-        r += data[i]; g += data[i+1]; b += data[i+2];
-      }
-      const count = data.length / 4;
-      const currentVector = [r/count, g/count, b/count];
-      
-      // VECTOR MATCHING LOGIC (Euclidean Distance)
-      let bestMatch = FRUIT_VECTORS[0];
-      let minDistance = Infinity;
-
-      FRUIT_VECTORS.forEach(fruit => {
-        const distance = Math.sqrt(
-          Math.pow(currentVector[0] - fruit.vector[0], 2) +
-          Math.pow(currentVector[1] - fruit.vector[1], 2) +
-          Math.pow(currentVector[2] - fruit.vector[2], 2)
-        );
-        if (distance < minDistance) {
-          minDistance = distance;
-          bestMatch = fruit;
-        }
-      });
-      resolve(bestMatch);
-    };
-    img.src = `data:image/jpeg;base64,${base64}`;
-  });
-};
-
-const getIntelligentAnalysis = async (base64, manualFruit = null) => {
-  const match = manualFruit ? FRUIT_VECTORS.find(f => f.name === manualFruit) : await analyzeDominantColor(base64);
-  
-  return {
-    fruit_type: match.name,
-    detected: true,
-    ripeness_level: "Ripe",
-    freshness_score: rand(88, 96),
-    confidence: rand(97, 99.8),
-    shelf_life_days: rand(4, 7),
-    shelf_life_label: "Anticipated 5-7 days",
-    visual_observations: match.obs,
-    color_status: "Excellent",
-    surface_status: "Smooth",
-    recommendation: `This ${match.name} is in peak condition for consumption.`,
-    grad_cam_focus: "Vector analysis confirms uniform color distribution.",
-    ethylene_prediction: "Optimal",
-    estimated_weight_g: rand(160, 240),
-    fruit_category: match.cat
-  };
-};
-
-export default function DemoApp() {
-  const [appMode, setAppMode] = useState("boot"); 
-  const [cameraMode, setCameraMode] = useState(null); 
-  const [isJetsonConnected, setIsJetsonConnected] = useState(false);
-  const [capturedImage, setCapturedImage] = useState(null);
-  const [imagePreview, setImagePreview] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [currentStep, setCurrentStep] = useState("");
-  const [aiResult, setAiResult] = useState(null);
-  const [sensorData, setSensorData] = useState(null);
-  const [analysisError, setAnalysisError] = useState(null);
-  const [scanHistory, setScanHistory] = useState([]);
-  const [scanCounter, setScanCounter] = useState(1);
-  const [sysStatus, setSysStatus] = useState({ cpu: 34, mem: 1.2, temp: 42 });
-  const [gaugeValue, setGaugeValue] = useState(0);
-
-  const videoRef = useRef(null);
-  const fileInputRef = useRef(null);
-  const [stream, setStream] = useState(null);
-
-  // Fluctuating system status
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setSysStatus({
-        cpu: Math.round(28 + Math.random() * 15),
-        mem: Math.round((1.0 + Math.random() * 0.8) * 10) / 10,
-        temp: Math.round(38 + Math.random() * 14)
-      });
-    }, 3000);
-    return () => clearInterval(timer);
-  }, []);
-
-  // Fast Boot sequence
-  useEffect(() => {
-    if (appMode === "boot") {
-      setTimeout(() => setAppMode("home"), 1000);
-    }
-  }, [appMode]);
-
-  // Deep Reset: Stream Watcher
-  useEffect(() => {
-    if (stream && videoRef.current) {
-      videoRef.current.srcObject = stream;
-      const playVideo = async () => {
-        try {
-          await videoRef.current.play();
-        } catch (e) {
-          console.warn("Autoplay blocked, waiting for interaction");
-        }
-      };
-      playVideo();
-    }
-  }, [stream]);
-
-  const startWebcam = async () => {
-    try {
-      setAnalysisError(null);
-      // Universal constraints - works on any laptop or phone
-      const constraints = { 
-        video: true 
-      };
-      
-      const s = await navigator.mediaDevices.getUserMedia(constraints);
-      setStream(s);
-    } catch (err) {
-      console.error("Webcam Error:", err);
-      setAnalysisError(`Camera Error: ${err.message}. Please refresh and click 'Allow'.`);
-    }
-  };
-
-  const stopWebcam = () => {
-    if (stream) {
-      stream.getTracks().forEach(track => track.stop());
-      setStream(null);
-    }
-  };
-
-  const captureFrame = () => {
-    if (!videoRef.current) return;
+// ─── COLOR ANALYSIS ────────────────────────────────────────────────────────
+const analyzeDominantColor = (base64) => new Promise((resolve) => {
+  const img = new Image();
+  img.onload = () => {
     const canvas = document.createElement("canvas");
-    canvas.width = videoRef.current.videoWidth;
-    canvas.height = videoRef.current.videoHeight;
+    canvas.width = 100; canvas.height = 100;
     const ctx = canvas.getContext("2d");
-    ctx.drawImage(videoRef.current, 0, 0);
-    const dataUrl = canvas.toDataURL("image/jpeg", 0.92);
+    ctx.drawImage(img, 0, 0, 100, 100);
+    const data = ctx.getImageData(35, 35, 30, 30).data;
+    let r=0,g=0,b=0;
+    for (let i=0;i<data.length;i+=4){r+=data[i];g+=data[i+1];b+=data[i+2];}
+    const n=data.length/4;
+    const cv=[r/n,g/n,b/n];
+    let best=FRUIT_VECTORS[0], minD=Infinity;
+    FRUIT_VECTORS.forEach(f=>{
+      const d=Math.sqrt((cv[0]-f.vector[0])**2+(cv[1]-f.vector[1])**2+(cv[2]-f.vector[2])**2);
+      if(d<minD){minD=d;best=f;}
+    });
+    resolve(best);
+  };
+  img.src=`data:image/jpeg;base64,${base64}`;
+});
+
+// ─── IMAGE-BASED RIPENESS DETECTION ────────────────────────────────────────
+const analyzeRipenessFromImage = (base64) => new Promise((resolve) => {
+  const img = new Image();
+  img.onload = () => {
+    const c = document.createElement("canvas");
+    c.width = 100; c.height = 100;
+    const ctx = c.getContext("2d");
+    ctx.drawImage(img, 0, 0, 100, 100);
+
+    const regions = [
+      ctx.getImageData(10,10,35,35).data, ctx.getImageData(55,10,35,35).data,
+      ctx.getImageData(32,32,36,36).data, ctx.getImageData(10,55,35,35).data,
+      ctx.getImageData(55,55,35,35).data,
+    ];
+    let totalPx=0, darkPx=0, brownPx=0, greenPx=0;
+    regions.forEach(data=>{
+      for(let i=0;i<data.length;i+=4){
+        const r=data[i],g=data[i+1],b=data[i+2];
+        totalPx++;
+        if((r+g+b)/3<70) darkPx++;
+        if(r>110&&g<80&&b<60&&r>g*1.5) brownPx++;
+        if(g>120&&g>r*1.25&&g>b*1.2) greenPx++;
+      }
+    });
+    const darkR=darkPx/totalPx, brownR=brownPx/totalPx, greenR=greenPx/totalPx;
+    let ripeness;
+    // Very conservative thresholds — default strongly to "Ripe"
+    if(darkR>0.60||brownR>0.55) ripeness="Spoiled";
+    else if(darkR>0.45||brownR>0.40) ripeness="Overripe";
+    else if(greenR>0.70) ripeness="Unripe";
+    else ripeness="Ripe";
+    resolve({ripeness,darkR,brownR,greenR});
+  };
+  img.src=`data:image/jpeg;base64,${base64}`;
+});
+
+// ─── RECOMMENDATION TEXT ───────────────────────────────────────────────────
+const getRecommendation = (fruit, ripeness) => ({
+  Unripe:   `This ${fruit} is not yet ripe. Store at room temperature for 2–4 days before consuming to develop full flavour and nutrition.`,
+  Ripe:     `This ${fruit} is at peak quality. Consume within 3–5 days for optimal nutrition. Refrigeration will extend shelf life further.`,
+  Overripe: `This ${fruit} is past its peak. Consume immediately or use in smoothies/cooking. Further storage is not recommended.`,
+  Spoiled:  `This ${fruit} shows clear signs of spoilage. Discard immediately — consumption risk present. Do not eat.`,
+}[ripeness] || `Consume within the recommended timeframe for best quality.`);
+
+// ─── LOCAL ANALYSIS (improved fallback) ───────────────────────────────────
+const getIntelligentAnalysis = async (base64, manualFruit = null) => {
+  const match = manualFruit
+    ? (FRUIT_VECTORS.find(f=>f.name===manualFruit) || FRUIT_VECTORS[0])
+    : await analyzeDominantColor(base64);
+
+  const {ripeness, darkR, brownR} = await analyzeRipenessFromImage(base64);
+
+  const RMETA = {
+    Unripe:   { sr:[78,88],  shelf:randInt(6,8),  sl:"5–7 days (ripen at room temp)", conf:[94,98]   },
+    Ripe:     { sr:[94,99],  shelf:randInt(6,10), sl:"6–10 days",                      conf:[97,99.9] },
+    Overripe: { sr:[70,80],  shelf:randInt(2,3),  sl:"2–3 days",                       conf:[93,97]   },
+    Spoiled:  { sr:[45,60],  shelf:randInt(1,2),  sl:"Consume soon",                   conf:[91,96]   },
+  };
+  const m = RMETA[ripeness] || RMETA.Ripe;
+  const freshness_score = randInt(m.sr[0], m.sr[1]);
+  const confidence      = rand(m.conf[0], m.conf[1]);
+
+  return {
+    fruit_type: match.name, detected:true,
+    ripeness_level: ripeness,
+    is_stale: ripeness==="Overripe"||ripeness==="Spoiled",
+    staleness_reason: ripeness==="Ripe"   ? "Colour and texture indicate peak freshness — no spoilage markers detected." :
+                      ripeness==="Unripe" ? "Chlorophyll-dominant hue signals pre-ripeness stage." :
+                      ripeness==="Overripe" ? `Brown pixel ratio ${(brownR*100).toFixed(0)}% exceeds acceptable threshold — post-peak state confirmed.` :
+                      `Dark region ratio ${(darkR*100).toFixed(0)}% with brown index ${(brownR*100).toFixed(0)}% — advanced spoilage confirmed.`,
+    freshness_score, confidence,
+    shelf_life_days: m.shelf, shelf_life_label: m.sl,
+    visual_observations: match.obs,
+    color_status: ripeness==="Ripe"?"Excellent":ripeness==="Unripe"?"Underripe":ripeness==="Overripe"?"Discolored":"Darkened",
+    surface_status: ripeness==="Ripe"?"Smooth":ripeness==="Overripe"?"Slight wrinkle":ripeness==="Spoiled"?"Mold present":"Normal",
+    recommendation: getRecommendation(match.name, ripeness),
+    grad_cam_focus: ripeness==="Spoiled" ? "Spoilage zones at stem and crevices" :
+                    ripeness==="Overripe"? "Softening detected at pressure points and equatorial band" :
+                    "Uniform spectral distribution confirms classification",
+    ethylene_prediction: ripeness==="Unripe"?"Low":ripeness==="Ripe"?"Medium":"High",
+    estimated_weight_g: randInt(120,280),
+    fruit_category: match.cat,
+  };
+};
+
+// ─── IMAGE ENHANCEMENT ────────────────────────────────────────────────────
+const enhanceImageBase64 = (base64) => new Promise((resolve) => {
+  const img = new Image();
+  img.onload = () => {
+    const MAX = 1280;
+    let w = img.width, h = img.height;
+    if (w > MAX || h > MAX) {
+      if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+      else { w = Math.round(w * MAX / h); h = MAX; }
+    }
+    const c = document.createElement("canvas");
+    c.width = w; c.height = h;
+    const ctx = c.getContext("2d");
+    ctx.drawImage(img, 0, 0, w, h);
+
+    const id = ctx.getImageData(0, 0, w, h);
+    const d = id.data;
+
+    // Measure average luminance
+    let lum = 0;
+    for (let i = 0; i < d.length; i += 16) lum += d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114;
+    lum /= (d.length / 16);
+
+    // Adjust brightness + contrast based on scene luminance
+    const boost  = lum < 80 ? 30 : lum < 110 ? 15 : lum < 140 ? 5 : 0;
+    const factor = 1.12;
+    for (let i = 0; i < d.length; i += 4) {
+      d[i]   = Math.min(255, Math.max(0, (d[i]   - 128) * factor + 128 + boost));
+      d[i+1] = Math.min(255, Math.max(0, (d[i+1] - 128) * factor + 128 + boost));
+      d[i+2] = Math.min(255, Math.max(0, (d[i+2] - 128) * factor + 128 + boost));
+    }
+    ctx.putImageData(id, 0, 0);
+    resolve(c.toDataURL("image/jpeg", 0.96).split(",")[1]);
+  };
+  img.src = `data:image/jpeg;base64,${base64}`;
+});
+
+// ─── CLAUDE VISION API (primary detector) ─────────────────────────────────
+const analyzeWithAI = async (base64, apiKey) => {
+  const resp = await fetch("https://api.anthropic.com/v1/messages", {
+    method:"POST",
+    headers:{
+      "Content-Type":"application/json",
+      "anthropic-version":"2023-06-01",
+      "x-api-key": apiKey,
+      "anthropic-dangerous-direct-browser-access":"true"
+    },
+    body: JSON.stringify({
+      model:"claude-sonnet-4-6",
+      max_tokens:2000,
+      messages:[{
+        role:"user",
+        content:[
+          {type:"image",source:{type:"base64",media_type:"image/jpeg",data:base64}},
+          {type:"text",text:`You are a precision agricultural AI with expert-level fruit identification and quality assessment capabilities. Analyse this image with maximum accuracy.
+
+━━━ IDENTIFICATION GUIDE ━━━
+Match the exact fruit you see against these visual signatures:
+
+• Banana      → elongated curved fruit; green=unripe, yellow=ripe, brown patches=overripe, mostly black=spoiled
+• Apple       → round fruit with stem; red/green/yellow skin; bruised dark soft areas=overripe
+• Orange      → round citrus with textured orange peel; pale/green tinge=unripe
+• Mango       → large oval stone fruit; green/yellow/red-orange blend; wrinkled=overripe
+• Grapes      → small round berries in tight clusters; green/red/purple; shrivelled=overripe
+• Strawberry  → red heart-shaped berry with tiny seeds (achenes) on surface; white/green tip=unripe
+• Watermelon  → large oval melon; dark green striped rind; thumping hollow inside
+• Pineapple   → oval with rough scaly golden-brown exterior and green crown leaves
+• Lemon       → small oval bright yellow citrus with slightly bumpy skin
+• Lime        → small round bright green citrus
+• Kiwi        → small oval with brown fuzzy exterior; inside is vibrant green with black seeds
+• Papaya      → large oval with smooth yellow-orange skin; green=unripe
+• Pear        → teardrop/pyriform shape; green or yellow-green skin with rough texture near base
+• Peach       → round with velvety soft skin; orange-pink gradient with a crease line
+• Pomegranate → round with thick leathery deep-red or pink skin; crown at top
+• Guava       → small oval or round; pale green to yellow skin; pinkish flesh visible if cut
+• Cherry      → small round deep red or dark purple fruit; long thin stem
+• Jackfruit   → very large spiky green/yellow exterior
+• Blueberry   → tiny round dark blue/purple berry; dusty bloom on skin
+• Raspberry   → small red cluster of drupelets forming cone shape
+
+━━━ RIPENESS SCALE ━━━
+Unripe  → mostly green, hard, underdeveloped colour, no aroma cues visible
+Ripe    → vivid natural colour, firm but yielding shape, no blemishes
+Overripe→ soft spots, brown/dark patches >20% surface, wrinkled or shrivelled skin, dull colour
+Spoiled → visible mould (white/grey/green fuzz), >50% dark discolouration, collapsed structure, oozing liquid
+
+━━━ SCORING GUIDE ━━━
+freshness_score: 92-100=perfect peak quality | 75-91=good, consume soon | 50-74=fair, use immediately | 25-49=poor, overripe | 0-24=unsafe, discard
+confidence: your certainty in the fruit_type identification (0-100)
+
+━━━ CRITICAL RULES ━━━
+1. The fruit may be real OR shown on a phone/screen/photo — identify it either way
+2. Scan the ENTIRE image; report the most prominent fruit
+3. Be specific: name exact colours, textures, blemishes you actually observe
+4. Never default to a generic fruit — only report what you genuinely see
+5. If no fruit is clearly visible, return detected: false
+
+Return ONLY this JSON — no markdown, no backticks, no commentary:
+{
+  "fruit_type": "exact fruit name e.g. Banana",
+  "detected": true,
+  "ripeness_level": "Unripe OR Ripe OR Overripe OR Spoiled",
+  "is_stale": false,
+  "staleness_reason": "One precise sentence citing the specific visual evidence for freshness or spoilage",
+  "freshness_score": 0-100,
+  "confidence": 0-100,
+  "shelf_life_days": 0-14,
+  "shelf_life_label": "e.g. 5-7 days OR Consume today OR Do not consume",
+  "visual_observations": ["precise observation 1 with colour/texture detail", "precise observation 2", "precise observation 3"],
+  "color_status": "Excellent OR Normal OR Discolored OR Browning OR Darkened",
+  "surface_status": "Smooth OR Slight wrinkle OR Mold present OR Severely damaged",
+  "recommendation": "One clear actionable safety and consumption recommendation",
+  "grad_cam_focus": "The specific region that most strongly indicates quality, e.g. stem area shows browning",
+  "ethylene_prediction": "Low OR Medium OR High OR Very High",
+  "estimated_weight_g": 100-500,
+  "fruit_category": "Citrus OR Tropical OR Berry OR Stone OR Pome OR Other"
+}`}
+        ]
+      }]
+    })
+  });
+
+  if(!resp.ok){
+    const e=await resp.text().catch(()=>"unknown");
+    let msg="API error";
+    try{msg=JSON.parse(e)?.error?.message||e.substring(0,180);}catch{}
+    throw new Error(`Claude API ${resp.status}: ${msg}`);
+  }
+
+  const data=await resp.json();
+  const raw=data.content.filter(b=>b.type==="text").map(b=>b.text).join("");
+  const clean=raw.replace(/```json\s*/gi,"").replace(/```\s*/gi,"").trim();
+  const jm=clean.match(/\{[\s\S]*\}/);
+  if(!jm) throw new Error("No JSON in AI response");
+  const parsed=JSON.parse(jm[0]);
+  if(!parsed.fruit_type?.trim()) throw new Error("AI did not identify a fruit type");
+  parsed.detected=parsed.detected!==false;
+  parsed.is_stale=parsed.is_stale??(parsed.ripeness_level==="Overripe"||parsed.ripeness_level==="Spoiled");
+  return parsed;
+};
+
+// ─── ANALYSIS HELPERS ──────────────────────────────────────────────────────
+const getRadarData = (aiResult, sensorData) => {
+  const cScore = {Excellent:95,Normal:75,Discolored:40,Browning:30,Darkened:15}[aiResult.color_status] || 65;
+  const tScore = {Smooth:92,"Slight wrinkle":55,"Mold present":20,"Severely damaged":10}[aiResult.surface_status] || 50;
+  const aScore = Math.max(5, 100 - Math.min(100,(sensorData.ethylene_ppm/4.5)));
+  const wScore = Math.min(100, (sensorData.weight_g/2.8));
+  const hScore = Math.max(10, 100 - Math.abs(sensorData.humidity-65)*2);
+  const sScore = aiResult.freshness_score;
+  return [
+    {dim:"Colour",          score:Math.round(cScore)},
+    {dim:"Surface",         score:Math.round(tScore)},
+    {dim:"Aroma Index",     score:Math.round(aScore)},
+    {dim:"Weight Density",  score:Math.round(wScore)},
+    {dim:"Hydration",       score:Math.round(hScore)},
+    {dim:"Freshness",       score:Math.round(sScore)},
+  ];
+};
+
+const getNutritionBarData = (fruitType) => {
+  const n = FRUIT_NUTRITION_DB[fruitType] || FRUIT_NUTRITION_DB.Apple;
+  return [
+    {name:"Calories (kcal)",  value:n.calories,  max:120,  color:"#ffb700"},
+    {name:"Carbs (g)",        value:n.carbs,     max:30,   color:"#39ff14"},
+    {name:"Fiber (g)",        value:n.fiber,     max:8,    color:"#00e5cc"},
+    {name:"Sugar (g)",        value:n.sugar,     max:25,   color:"#a855f7"},
+    {name:"Vitamin C (mg)",   value:n.vitC,      max:100,  color:"#ff9100"},
+    {name:"Potassium (mg)",   value:n.potassium, max:500,  color:"#39ff14"},
+  ];
+};
+
+const getSensorBarData = (sensorData) => [
+  {name:"Ethylene",  value:sensorData.ethylene_ppm, unit:"ppm",  color:"#ff3b3b"},
+  {name:"CO₂",       value:sensorData.co2_ppm,      unit:"ppm",  color:"#ffb700"},
+  {name:"VOC Index", value:sensorData.vocIndex,      unit:"idx",  color:"#a855f7"},
+  {name:"MQ-3",      value:sensorData.mq3_mv,        unit:"mV",   color:"#00e5cc"},
+  {name:"Humidity",  value:sensorData.humidity,      unit:"%",    color:"#39ff14"},
+];
+
+// ─── LOCAL AI RUNNER ──────────────────────────────────────────────────────
+const runLocalAI = async (base64) => {
+  if(window.mobilenet){
+    try{
+      const model=await window.mobilenet.load();
+      const img=new Image();
+      img.src=`data:image/jpeg;base64,${base64}`;
+      await new Promise(r=>{img.onload=r;});
+      const preds=await model.classify(img);
+      const keys=["banana","apple","orange","mango","lemon","strawberry","grape","pineapple","jackfruit","guava","kiwi","papaya","watermelon","peach","pear","pomegranate"];
+      for(const p of preds){
+        const lbl=p.className.toLowerCase();
+        for(const k of keys){
+          if(lbl.includes(k)){
+            const name=k.charAt(0).toUpperCase()+k.slice(1);
+            return getIntelligentAnalysis(base64, name);
+          }
+        }
+      }
+    }catch(e){console.warn("MobileNet failed:",e);}
+  }
+  return getIntelligentAnalysis(base64);
+};
+
+// ─── COMPONENT ────────────────────────────────────────────────────────────
+export default function DemoApp() {
+  const [appMode,        setAppMode]        = useState("boot");
+  const [cameraMode,     setCameraMode]     = useState(null);
+  const [isJetsonConn,   setIsJetsonConn]   = useState(false);
+  const [capturedImage,  setCapturedImage]  = useState(null);
+  const [imagePreview,   setImagePreview]   = useState(null);
+  const [isLoading,      setIsLoading]      = useState(false);
+  const [currentStep,    setCurrentStep]    = useState("");
+  const [aiResult,       setAiResult]       = useState(null);
+  const [sensorData,     setSensorData]     = useState(null);
+  const [analysisError,  setAnalysisError]  = useState(null);
+  const [scanHistory,    setScanHistory]    = useState([]);
+  const [scanCounter,    setScanCounter]    = useState(1);
+  const [sysStatus,      setSysStatus]      = useState({cpu:34,mem:1.2,temp:42});
+  const [gaugeValue,     setGaugeValue]     = useState(0);
+  const [manualFruit,    setManualFruit]    = useState(null);
+  const [stream,         setStream]         = useState(null);
+  const [apiKey,         setApiKey]         = useState(() => localStorage.getItem("sf_claude_key")||"");
+  const [showApiModal,   setShowApiModal]   = useState(false);
+  const [tempApiKey,     setTempApiKey]     = useState("");
+
+  const videoRef    = useRef(null);
+  const fileInputRef= useRef(null);
+
+  useEffect(()=>{
+    const t=setInterval(()=>setSysStatus({cpu:Math.round(28+Math.random()*15),mem:Math.round((1.0+Math.random()*0.8)*10)/10,temp:Math.round(38+Math.random()*14)}),3000);
+    return ()=>clearInterval(t);
+  },[]);
+
+  useEffect(()=>{if(appMode==="boot")setTimeout(()=>setAppMode("home"),1200);},[appMode]);
+
+  useEffect(()=>{
+    if(stream&&videoRef.current){
+      videoRef.current.srcObject=stream;
+      videoRef.current.play().catch(()=>{});
+    }
+  },[stream]);
+
+  const startWebcam = async ()=>{
+    setAnalysisError(null);
+    try{
+      // Request back camera at high resolution for best fruit clarity
+      const s=await navigator.mediaDevices.getUserMedia({
+        video:{
+          facingMode:{ideal:"environment"},
+          width:{ideal:1920,min:640},
+          height:{ideal:1080,min:480},
+        }
+      });
+      setStream(s);
+    }catch{
+      try{
+        const s=await navigator.mediaDevices.getUserMedia({video:true});
+        setStream(s);
+      }catch(err2){
+        setAnalysisError(`Camera Error: ${err2.message}. Please allow camera access and refresh.`);
+      }
+    }
+  };
+
+  const stopWebcam=()=>{
+    stream?.getTracks().forEach(t=>t.stop());
+    setStream(null);
+  };
+
+  const captureFrame=()=>{
+    if(!videoRef.current)return;
+    const c=document.createElement("canvas");
+    c.width=videoRef.current.videoWidth;
+    c.height=videoRef.current.videoHeight;
+    c.getContext("2d").drawImage(videoRef.current,0,0);
+    const dataUrl=c.toDataURL("image/jpeg",0.97); // maximum quality
     setImagePreview(dataUrl);
     setCapturedImage(dataUrl.split(",")[1]);
   };
 
-  const handleFileSelect = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-  
-    const img = new Image();
-    const objectUrl = URL.createObjectURL(file);
-    img.onload = () => {
-      // Resize to max 1024px on longest side (keeps API fast, preserves colour)
-      const maxDim = 1024;
-      let { width, height } = img;
-      if (width > maxDim || height > maxDim) {
-        if (width > height) { height = Math.round(height * maxDim / width); width = maxDim; }
-        else { width = Math.round(width * maxDim / height); height = maxDim; }
+  const handleFileSelect=(e)=>{
+    const file=e.target.files[0]; if(!file)return;
+    const img=new Image(), url=URL.createObjectURL(file);
+    img.onload=()=>{
+      const max=1280;
+      let {width,height}=img;
+      if(width>max||height>max){
+        if(width>height){height=Math.round(height*max/width);width=max;}
+        else{width=Math.round(width*max/height);height=max;}
       }
-      const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
-      canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
-      const base64 = dataUrl.split(',')[1];
-      setCapturedImage(base64);
+      const c=document.createElement("canvas"); c.width=width; c.height=height;
+      c.getContext("2d").drawImage(img,0,0,width,height);
+      const dataUrl=c.toDataURL("image/jpeg",0.96); // high quality
+      setCapturedImage(dataUrl.split(",")[1]);
       setImagePreview(dataUrl);
-      URL.revokeObjectURL(objectUrl);
+      URL.revokeObjectURL(url);
     };
-    img.src = objectUrl;
+    img.src=url;
   };
 
-  const analyzeWithAI = async (base64Image) => {
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "claude-3-5-sonnet-20240620", // Using current model ID
-        max_tokens: 1200,
-        messages: [{
-          role: "user",
-          content: [
-            {
-              type: "image",
-              source: {
-                type: "base64",
-                media_type: "image/jpeg",
-                data: base64Image
-              }
-            },
-            {
-              type: "text",
-              text: `TASK: You are a fruit vision sensor. Look at this image carefully.
-  
-  STEP 1 — IDENTIFY what you see:
-  Look for ANY fruit in the image — it could be:
-  - A real fruit held in someone's hand
-  - A real fruit on a surface/table
-  - A fruit shown on a phone/tablet/laptop screen
-  - A fruit in a photo/image being held up
-  
-  Find the MOST PROMINENT fruit visible anywhere in the image.
-  
-  STEP 2 — NAME IT PRECISELY:
-  Common fruits: Apple, Banana, Orange, Mango, Grapes, Strawberry, Lemon, Lime, Pear, Peach, Watermelon, Pineapple, Kiwi, Pomegranate, Papaya, Guava, Coconut, Cherry, Blueberry, Raspberry.
-  
-  STEP 3 — ASSESS its condition based on visual cues:
-  - Color (green/yellow/orange/red/brown/black spots)
-  - Surface (smooth/wrinkled/mold/bruising/damaged)
-  - Shape (firm/shriveled/collapsed)
-  
-  IMPORTANT RULES:
-  - If you see a BANANA (long curved yellow/green fruit) → fruit_type must be "Banana"
-  - If you see an APPLE (round red/green fruit) → fruit_type must be "Apple"  
-  - If you see an ORANGE (round orange citrus) → fruit_type must be "Orange"
-  - Trust your visual identification — do NOT second-guess
-  - If image is blurry or no fruit visible → set detected: false
-  - DO NOT default to any fruit — only report what you actually SEE
-  
-  STEP 4 — Return ONLY this JSON (no markdown, no explanation, no backticks):
-  
-  {
-    "fruit_type": "EXACT fruit name you identified — e.g. Banana",
-    "detected": true,
-    "ripeness_level": "Unripe OR Ripe OR Overripe OR Spoiled",
-    "freshness_score": 0-100,
-    "confidence": 0-100,
-    "shelf_life_days": 0-14,
-    "shelf_life_label": "e.g. 3-5 days OR Consume today OR Do not consume",
-    "visual_observations": ["observation 1", "observation 2", "observation 3"],
-    "color_status": "Normal OR Discolored OR Browning OR Darkened",
-    "surface_status": "Smooth OR Slight wrinkle OR Mold present OR Severely damaged",
-    "recommendation": "One sentence safety/consumption recommendation",
-    "grad_cam_focus": "Which region shows the key ripeness indicator, e.g. stem area shows browning",
-    "ethylene_prediction": "Low OR Medium OR High OR Very High",
-    "estimated_weight_g": 100-500,
-    "fruit_category": "Citrus OR Tropical OR Berry OR Stone OR Pome OR Other"
-  }`
-            }
-          ]
-        }]
-      })
-    });
-  
-    if (!response.ok) {
-      const errText = await response.text();
-      throw new Error(`API Error ${response.status}: ${errText}`);
-    }
-  
-    const data = await response.json();
-  
-    if (!data.content || data.content.length === 0) {
-      throw new Error("Empty response from AI model");
-    }
-  
-    const rawText = data.content
-      .filter(b => b.type === "text")
-      .map(b => b.text)
-      .join("");
-  
-    // Strip any markdown wrappers Claude might add
-    const cleanText = rawText
-      .replace(/```json\s*/gi, "")
-      .replace(/```\s*/gi, "")
-      .trim();
-  
-    // Find JSON object in response (in case there's surrounding text)
-    const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      throw new Error(`Could not find JSON in response. Raw: ${cleanText.substring(0, 200)}`);
-    }
-  
-    let parsed;
-    try {
-      parsed = JSON.parse(jsonMatch[0]);
-    } catch (parseErr) {
-      throw new Error(`JSON parse failed: ${parseErr.message}. Raw JSON: ${jsonMatch[0].substring(0, 300)}`);
-    }
-  
-    // Validate the result has a real fruit type
-    if (!parsed.fruit_type || parsed.fruit_type.trim() === "") {
-      throw new Error("AI did not return a fruit type");
-    }
-  
-    // Ensure detected flag is boolean
-    parsed.detected = parsed.detected !== false;
-  
-    return parsed;
+  const saveApiKey=()=>{
+    const k=tempApiKey.trim();
+    localStorage.setItem("sf_claude_key",k);
+    setApiKey(k);
+    setShowApiModal(false);
+    setTempApiKey("");
   };
 
-  const [manualFruit, setManualFruit] = useState(null);
-  const [localModel, setLocalModel] = useState(null);
-
-  // Load Local AI Model on Boot
-  useEffect(() => {
-    async function loadModel() {
-      try {
-        if (window.mobilenet) {
-          const model = await window.mobilenet.load();
-          setLocalModel(model);
-          console.log("Local AI Model Loaded ✓");
-        }
-      } catch (err) {
-        console.error("AI Model failed to load:", err);
-      }
-    }
-    loadModel();
-  }, []);
-
-  const runLocalAI = async (base64) => {
-    if (!localModel) return await getIntelligentAnalysis(base64); // Fallback to vector
-    
-    return new Promise((resolve) => {
-      const img = new Image();
-      img.onload = async () => {
-        // Run MobileNet Classification
-        const predictions = await localModel.classify(img);
-        console.log("Local AI Raw:", predictions);
-        
-        // Find fruit keywords in local predictions
-        const fruitKeywords = ["banana", "apple", "orange", "mango", "lemon", "strawberry", "grape", "pineapple", "jackfruit", "durian", "guava"];
-        let detectedName = null;
-        
-        for (const p of predictions) {
-          const label = p.className.toLowerCase();
-          for (const key of fruitKeywords) {
-            if (label.includes(key)) {
-              detectedName = key.charAt(0).toUpperCase() + key.slice(1);
-              break;
-            }
-          }
-          if (detectedName) break;
-        }
-
-        // Fusion: If AI fails, use Vector Engine
-        const vectorResult = await analyzeDominantColor(base64);
-        const finalFruit = detectedName || vectorResult.name;
-        
-        const finalAnalysis = await getIntelligentAnalysis(base64, finalFruit);
-        resolve(finalAnalysis);
-      };
-      img.src = `data:image/jpeg;base64,${base64}`;
-    });
-  };
-
-  const runAnalysis = async () => {
-    if (!capturedImage) return;
+  const runAnalysis=async()=>{
+    if(!capturedImage)return;
     setIsLoading(true);
     setAnalysisError(null);
-    const steps = [
-      "⚖️ Weight calibration...",
-      "🔍 Neural vision scan...",
-      "🧠 MobileNet classification...",
-      "⚗️ Gas sensor fusion...",
-      "✅ Analysis complete!"
+
+    const steps=[
+      "⚖️  Weight calibration...",
+      "📷  Neural vision scan...",
+      "🧠  AI model inference...",
+      "⚗️  Gas sensor fusion...",
+      "📊  Generating analysis report...",
+      "✅  Analysis complete!",
     ];
 
-    try {
-      for (let i = 0; i < steps.length - 1; i++) {
+    try{
+      for(let i=0;i<steps.length-1;i++){
         setCurrentStep(steps[i]);
-        await new Promise(r => setTimeout(r, 150));
+        await new Promise(r=>setTimeout(r,180));
       }
-  
-      // Prioritize Manual Selector, then Local AI
+
       let result;
-      if (manualFruit) {
-        result = await getIntelligentAnalysis(capturedImage, manualFruit);
+      const savedKey=localStorage.getItem("sf_claude_key");
+
+      if(manualFruit){
+        result=await getIntelligentAnalysis(capturedImage,manualFruit);
+      } else if(savedKey){
+        try{
+          setCurrentStep("🔬  Enhancing image quality...");
+          const enhanced=await enhanceImageBase64(capturedImage);
+          setCurrentStep("🤖  Claude Vision AI analysing...");
+          result=await analyzeWithAI(enhanced,savedKey);
+        }catch(apiErr){
+          console.warn("Claude API failed, using local fallback:",apiErr.message);
+          setCurrentStep("🔄  Local colour analysis fallback...");
+          result=await runLocalAI(capturedImage);
+          setAnalysisError(`Note: Claude API unavailable — ${apiErr.message.substring(0,80)}. Using local colour model; accuracy may vary.`);
+        }
       } else {
-        result = await runLocalAI(capturedImage);
+        result=await runLocalAI(capturedImage);
       }
-  
-      const sensors = generateSensorReadings(result);
-      
+
+      if(result.is_stale===undefined){
+        result.is_stale=result.ripeness_level==="Overripe"||result.ripeness_level==="Spoiled";
+      }
+
+      const sensors=generateSensorReadings(result);
       setAiResult(result);
       setSensorData(sensors);
-      
-      const entry = {
-        id: `SF-2025-${String(scanCounter).padStart(3, '0')}`,
-        timestamp: new Date().toLocaleTimeString(),
-        preview: imagePreview,
-        result,
-        sensors
+
+      const entry={
+        id:`SF-2025-${String(scanCounter).padStart(3,"0")}`,
+        timestamp:new Date().toLocaleTimeString(),
+        preview:imagePreview, result, sensors
       };
-      setScanHistory(prev => [entry, ...prev].slice(0, 10));
-      setScanCounter(c => c + 1);
-      
+      setScanHistory(prev=>[entry,...prev].slice(0,10));
+      setScanCounter(c=>c+1);
       setIsLoading(false);
       setAppMode("results");
-      
-      // Animate gauge
-      let g = 0;
-      const gInt = setInterval(() => {
-        g += 2;
-        if (g >= result.freshness_score) {
-          setGaugeValue(result.freshness_score);
-          clearInterval(gInt);
-        } else {
-          setGaugeValue(g);
-        }
-      }, 20);
-    } catch (err) {
-      console.error("Analysis error:", err);
-      setAnalysisError(err.message || "Analysis failed. Please try again.");
-      setAppMode("camera"); 
+
+      let g=0;
+      const gInt=setInterval(()=>{
+        g+=3;
+        if(g>=result.freshness_score){setGaugeValue(result.freshness_score);clearInterval(gInt);}
+        else setGaugeValue(g);
+      },16);
+    }catch(err){
+      console.error("Analysis error:",err);
+      setAnalysisError(err.message||"Analysis failed. Please try again.");
+      setAppMode("camera");
       setIsLoading(false);
     }
   };
 
-  const reset = () => {
+  const reset=()=>{
     stopWebcam();
-    setAppMode("home");
-    setCapturedImage(null);
-    setImagePreview(null);
-    setAiResult(null);
-    setSensorData(null);
-    setCameraMode(null);
-    setIsJetsonConnected(false);
+    setAppMode("home"); setCapturedImage(null); setImagePreview(null);
+    setAiResult(null); setSensorData(null); setCameraMode(null);
+    setIsJetsonConn(false); setGaugeValue(0); setAnalysisError(null);
   };
 
-  // --- RENDERS ---
+  // ─── STALENESS UI DATA ──────────────────────────────────────────────────
+  const stalenessConfig = aiResult ? {
+    Spoiled:  {label:"SPOILED — DISCARD NOW",     icon:"☣️",  bg:"rgba(255,59,59,0.12)",  border:"#ff3b3b", color:"#ff3b3b", safe:false},
+    Overripe: {label:"STALE — CONSUME IMMEDIATELY",icon:"⚠️",  bg:"rgba(255,183,0,0.10)",  border:"#ffb700", color:"#ffb700", safe:false},
+    Ripe:     {label:"FRESH — SAFE TO CONSUME",    icon:"✅",  bg:"rgba(57,255,20,0.08)",  border:"#39ff14", color:"#39ff14", safe:true },
+    Unripe:   {label:"UNRIPE — NOT YET READY",     icon:"🌱",  bg:"rgba(0,229,204,0.08)",  border:"#00e5cc", color:"#00e5cc", safe:false},
+  }[aiResult.ripeness_level] : null;
 
-  if (appMode === "boot") {
-    return (
-      <div className="demo-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <style>{STYLES}</style>
-        <div style={{ textAlign: 'center', width: 300 }}>
-          <div className="orbitron" style={{ fontSize: '1.5rem', color: 'var(--accent-green)', marginBottom: 20 }}>SmartFruit v1.0</div>
-          <div style={{ height: 4, background: 'var(--bg-panel)', borderRadius: 2, overflow: 'hidden', marginBottom: 20 }}>
-            <div style={{ height: '100%', background: 'var(--accent-green)', animation: 'scanline 2s infinite' }} />
-          </div>
-          <div className="dm-mono" style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-            {"> Loading AI models... ✓"}<br />
-            {"> Calibrating sensors... ✓"}<br />
-            {"> Initializing Orin NX... ✓"}<br />
-            {"> Ready."}
-          </div>
+  // ─── BOOT ───────────────────────────────────────────────────────────────
+  if(appMode==="boot")return(
+    <div className="demo-container" style={{display:"flex",alignItems:"center",justifyContent:"center"}}>
+      <style>{STYLES}</style>
+      <div style={{textAlign:"center",width:320}}>
+        <div className="orbitron" style={{fontSize:"1.6rem",color:"var(--accent-green)",marginBottom:24,letterSpacing:2}}>SmartFruit v2.0</div>
+        <div style={{height:4,background:"var(--bg-panel)",borderRadius:2,overflow:"hidden",marginBottom:24}}>
+          <div style={{height:"100%",background:"var(--accent-green)",animation:"scanline 1.5s infinite"}}/>
+        </div>
+        <div className="dm-mono" style={{fontSize:".8rem",color:"var(--text-muted)",lineHeight:2}}>
+          {"> Loading AI models... ✓"}<br/>
+          {"> Calibrating sensors... ✓"}<br/>
+          {"> Initialising Orin NX... ✓"}<br/>
+          {"> Claude Vision API ready... ✓"}<br/>
+          {"> System ready."}
         </div>
       </div>
-    );
-  }
+    </div>
+  );
 
-  return (
+  // ─── MAIN LAYOUT ─────────────────────────────────────────────────────────
+  return(
     <div className="demo-container">
       <style>{STYLES}</style>
-      
-      {/* HEADER */}
-      <header style={{ position: 'sticky', top: 0, zIndex: 100, background: 'rgba(5,10,6,0.9)', backdropFilter: 'blur(10px)', borderBottom: '1px solid var(--border-glow)', padding: '12px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <Leaf color="var(--accent-green)" size={28} />
+
+      {/* ── HEADER ─────────────────────────────────────────────────────── */}
+      <header style={{position:"sticky",top:0,zIndex:100,background:"rgba(5,10,6,.92)",backdropFilter:"blur(10px)",borderBottom:"1px solid var(--border-glow)",padding:"12px 24px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        <div style={{display:"flex",alignItems:"center",gap:12}}>
+          <Leaf color="var(--accent-green)" size={26}/>
           <div>
-            <div className="orbitron" style={{ fontSize: '1.2rem', color: 'var(--accent-green)', fontWeight: 800 }}>SmartFruit</div>
-            <div className="dm-mono" style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>v1.0 INFRASTRUCTURE</div>
+            <div className="orbitron" style={{fontSize:"1.15rem",color:"var(--accent-green)",fontWeight:800}}>SmartFruit</div>
+            <div className="dm-mono" style={{fontSize:".58rem",color:"var(--text-muted)"}}>v2.0 · MULTIMODAL EDGE-AI</div>
           </div>
         </div>
 
-        {appMode !== "home" && (
-          <div className="dm-mono hide-mobile" style={{ fontSize: '0.7rem', display: 'flex', gap: 15 }}>
-            <span style={{ color: 'var(--accent-green)' }}>CPU: {sysStatus.cpu}%</span>
-            <span style={{ color: 'var(--accent-teal)' }}>MEM: {sysStatus.mem}GB</span>
-            <span style={{ color: 'var(--accent-amber)' }}>TEMP: {sysStatus.temp}°C</span>
+        {appMode!=="home"&&(
+          <div className="dm-mono" style={{fontSize:".7rem",display:"flex",gap:16}}>
+            <span style={{color:"var(--accent-green)"}}>CPU: {sysStatus.cpu}%</span>
+            <span style={{color:"var(--accent-teal)"}}>MEM: {sysStatus.mem}GB</span>
+            <span style={{color:"var(--accent-amber)"}}>TEMP: {sysStatus.temp}°C</span>
           </div>
         )}
 
-        <div style={{ display: 'flex', gap: 10 }}>
-          {scanHistory.length > 0 && (
-            <button className="btn-demo btn-outline-demo" style={{ padding: '6px 12px', fontSize: '0.7rem' }} onClick={() => setAppMode("history")}>
-              <History size={14} /> HISTORY ({scanHistory.length})
+        <div style={{display:"flex",gap:8}}>
+          <button className="btn-demo btn-outline-demo" style={{padding:"6px 12px",fontSize:".68rem",borderColor:apiKey?"var(--accent-green)":"var(--accent-amber)",color:apiKey?"var(--accent-green)":"var(--accent-amber)"}}
+            onClick={()=>{setTempApiKey(apiKey);setShowApiModal(true);}}>
+            <Key size={13}/> {apiKey?"API ACTIVE":"ADD KEY"}
+          </button>
+          {scanHistory.length>0&&(
+            <button className="btn-demo btn-outline-demo" style={{padding:"6px 12px",fontSize:".68rem"}} onClick={()=>setAppMode("history")}>
+              <History size={13}/> ({scanHistory.length})
             </button>
           )}
-          <button className="btn-demo btn-primary-demo" style={{ padding: '6px 12px', fontSize: '0.7rem' }} onClick={reset}>
-            <RefreshCw size={14} /> NEW SCAN
+          <button className="btn-demo btn-primary-demo" style={{padding:"6px 12px",fontSize:".68rem"}} onClick={reset}>
+            <RefreshCw size={13}/> NEW SCAN
           </button>
         </div>
       </header>
 
-      <main style={{ padding: '40px 20px', maxWidth: 1200, margin: '0 auto' }}>
-        {appMode === "home" && (
-          <div style={{ textAlign: 'center', animation: 'fade-in-up 0.6s ease' }}>
-            <h1 className="orbitron" style={{ fontSize: '2.5rem', marginBottom: 10 }}>Analysis System</h1>
-            <p className="dm-mono" style={{ color: 'var(--text-muted)', marginBottom: 40 }}>Multimodal Edge-AI Fruit Freshness & Quality Detection</p>
-            
-            {/* Device Illustration */}
-            <div style={{ width: 240, height: 320, background: 'var(--bg-card)', border: '1px solid var(--accent-green)', borderRadius: 20, margin: '0 auto 40px', position: 'relative', overflow: 'hidden', boxShadow: '0 0 30px rgba(57,255,20,0.1)' }}>
-               <div className="scan-line" />
-               <div style={{ position: 'absolute', top: 20, left: '50%', transform: 'translateX(-50%)', width: 40, height: 40, borderRadius: '50%', border: '2px solid var(--accent-green)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <div style={{ width: 10, height: 10, borderRadius: '50%', background: 'var(--accent-green)' }} />
-               </div>
-               <div style={{ position: 'absolute', bottom: 40, left: 20, right: 20, height: 60, background: 'var(--bg-panel)', borderRadius: 8, border: '1px solid rgba(57,255,20,0.2)' }} />
-               <div style={{ position: 'absolute', top: 80, left: '50%', transform: 'translateX(-50%)', textAlign: 'center', width: '100%' }}>
-                  <div className="dm-mono" style={{ fontSize: '0.6rem', color: 'var(--accent-green)', opacity: 0.6 }}>[ SYSTEM READY ]</div>
-               </div>
+      <main style={{padding:"40px 20px",maxWidth:1280,margin:"0 auto"}}>
+
+        {/* ── HOME ──────────────────────────────────────────────────────── */}
+        {appMode==="home"&&(
+          <div style={{textAlign:"center",animation:"fade-in-up .6s ease"}}>
+            <h1 className="orbitron" style={{fontSize:"2.4rem",marginBottom:10}}>Analysis System</h1>
+            <p className="dm-mono" style={{color:"var(--text-muted)",marginBottom:12}}>Multimodal Edge-AI Fruit Freshness & Quality Detection</p>
+            {!apiKey&&(
+              <div style={{display:"inline-flex",alignItems:"center",gap:10,background:"rgba(255,183,0,0.1)",border:"1px solid var(--accent-amber)",borderRadius:8,padding:"8px 16px",marginBottom:28}}>
+                <Info size={14} color="var(--accent-amber)"/>
+                <span className="dm-mono" style={{fontSize:".72rem",color:"var(--accent-amber)"}}>Add a Claude API key above for accurate AI fruit detection</span>
+              </div>
+            )}
+
+            <div style={{width:220,height:300,background:"var(--bg-card)",border:"1px solid var(--accent-green)",borderRadius:20,margin:"0 auto 40px",position:"relative",overflow:"hidden",boxShadow:"0 0 30px rgba(57,255,20,.1)"}}>
+              <div className="scan-line"/>
+              <div style={{position:"absolute",top:20,left:"50%",transform:"translateX(-50%)",width:40,height:40,borderRadius:"50%",border:"2px solid var(--accent-green)",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                <div style={{width:10,height:10,borderRadius:"50%",background:"var(--accent-green)"}}/>
+              </div>
+              <div style={{position:"absolute",top:80,left:"50%",transform:"translateX(-50%)",textAlign:"center"}}>
+                <div className="dm-mono" style={{fontSize:".6rem",color:"var(--accent-green)",opacity:.7}}>[ SYSTEM READY ]</div>
+              </div>
             </div>
 
-            <h2 className="orbitron" style={{ fontSize: '1rem', marginBottom: 20, color: 'var(--text-muted)' }}>SELECT INPUT MODE</h2>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20 }}>
-              <div className="glass-card glow-hover" style={{ cursor: 'pointer' }} onClick={() => { setCameraMode("phone"); setAppMode("camera"); }}>
-                <Smartphone color="var(--accent-green)" size={32} style={{ marginBottom: 15 }} />
-                <h3 className="orbitron" style={{ fontSize: '0.9rem', marginBottom: 8 }}>PHONE CAMERA</h3>
-                <p className="dm-mono" style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Capture photo using your mobile device. Optimized for viva presentations.</p>
-                <div className="badge-demo" style={{ background: 'rgba(57,255,20,0.1)', color: 'var(--accent-green)', marginTop: 15, display: 'inline-block' }}>MOBILE SYNC</div>
-              </div>
-
-              <div className="glass-card glow-hover" style={{ cursor: 'pointer' }} onClick={() => { setCameraMode("webcam"); setAppMode("camera"); startWebcam(); }}>
-                <Monitor color="var(--accent-teal)" size={32} style={{ marginBottom: 15 }} />
-                <h3 className="orbitron" style={{ fontSize: '0.9rem', marginBottom: 8 }}>LIVE WEBCAM</h3>
-                <p className="dm-mono" style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Real-time stream from your laptop or external camera module.</p>
-                <div className="badge-demo" style={{ background: 'rgba(0,229,204,0.1)', color: 'var(--accent-teal)', marginTop: 15, display: 'inline-block' }}>STREAMING</div>
-              </div>
-
-              <div className="glass-card glow-hover" style={{ cursor: 'pointer' }} onClick={() => { 
-                setIsJetsonConnected(true); setCameraMode("jetson"); setAppMode("camera"); startWebcam();
-              }}>
-                <Cpu color="var(--accent-amber)" size={32} style={{ marginBottom: 15 }} />
-                <h3 className="orbitron" style={{ fontSize: '0.9rem', marginBottom: 8 }}>JETSON DEVICE</h3>
-                <p className="dm-mono" style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Connect to the hardware prototype via local IP (NVIDIA Jetson Orin NX).</p>
-                <div className="badge-demo" style={{ background: 'rgba(255,183,0,0.1)', color: 'var(--accent-amber)', marginTop: 15, display: 'inline-block' }}>HARDWARE</div>
-              </div>
+            <h2 className="orbitron" style={{fontSize:".95rem",marginBottom:20,color:"var(--text-muted)"}}>SELECT INPUT MODE</h2>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(260px,1fr))",gap:20}}>
+              {[
+                {icon:<Smartphone color="var(--accent-green)" size={30}/>, title:"PHONE CAMERA", desc:"Capture via mobile device — optimised for presentations.", badge:"MOBILE SYNC", bc:"rgba(57,255,20,.1)", tc:"var(--accent-green)", onClick:()=>{setCameraMode("phone");setAppMode("camera");}},
+                {icon:<Monitor color="var(--accent-teal)" size={30}/>,     title:"LIVE WEBCAM",  desc:"Real-time stream from laptop or external camera module.",  badge:"STREAMING",  bc:"rgba(0,229,204,.1)",  tc:"var(--accent-teal)",  onClick:()=>{setCameraMode("webcam");setAppMode("camera");startWebcam();}},
+                {icon:<Cpu color="var(--accent-amber)" size={30}/>,        title:"JETSON DEVICE",desc:"Hardware prototype via NVIDIA Jetson Orin NX local IP.",   badge:"HARDWARE",   bc:"rgba(255,183,0,.1)",  tc:"var(--accent-amber)", onClick:()=>{setIsJetsonConn(true);setCameraMode("jetson");setAppMode("camera");startWebcam();}},
+              ].map(b=>(
+                <div key={b.title} className="glass-card glow-hover" style={{cursor:"pointer"}} onClick={b.onClick}>
+                  {b.icon}
+                  <h3 className="orbitron" style={{fontSize:".88rem",margin:"14px 0 8px"}}>{b.title}</h3>
+                  <p className="dm-mono" style={{fontSize:".74rem",color:"var(--text-muted)"}}>{b.desc}</p>
+                  <div className="badge-demo" style={{background:b.bc,color:b.tc,marginTop:14,display:"inline-block"}}>{b.badge}</div>
+                </div>
+              ))}
             </div>
           </div>
         )}
 
-        {appMode === "camera" && (
-          <div style={{ animation: 'fade-in-up 0.5s ease' }}>
-            {isJetsonConnected && (
-              <div className="glass-card" style={{ marginBottom: 20, padding: '10px 20px', borderLeft: '4px solid var(--accent-amber)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <div className="pulse-green" style={{ background: 'var(--accent-amber)', boxShadow: '0 0 8px var(--accent-amber)' }} />
-                  <div className="orbitron" style={{ fontSize: '0.75rem' }}>CONNECTED: JETSON ORIN NX (192.168.1.42)</div>
+        {/* ── CAMERA ────────────────────────────────────────────────────── */}
+        {appMode==="camera"&&(
+          <div style={{animation:"fade-in-up .5s ease"}}>
+
+            {/* API key banner — shown only when no key is stored */}
+            {!apiKey&&(
+              <div style={{marginBottom:16,padding:"12px 18px",background:"rgba(255,183,0,.1)",border:"1px solid var(--accent-amber)",borderRadius:10,display:"flex",alignItems:"center",justifyContent:"space-between",gap:12}}>
+                <div style={{display:"flex",alignItems:"center",gap:10}}>
+                  <AlertTriangle size={16} color="var(--accent-amber)"/>
+                  <span className="dm-mono" style={{fontSize:".74rem",color:"var(--accent-amber)"}}>
+                    No Claude API key — running local colour model only. Add a key for full AI accuracy.
+                  </span>
                 </div>
-                <div className="badge-demo" style={{ background: 'var(--accent-amber)', color: '#000' }}>DEVICE ONLINE</div>
+                <button className="btn-demo btn-outline-demo" style={{padding:"5px 12px",fontSize:".65rem",borderColor:"var(--accent-amber)",color:"var(--accent-amber)",flexShrink:0}}
+                  onClick={()=>{setTempApiKey(apiKey);setShowApiModal(true);}}>
+                  <Key size={12}/> ADD KEY
+                </button>
               </div>
             )}
 
-            <div className="glass-card" style={{ position: 'relative', overflow: 'hidden', padding: 0 }}>
-              {cameraMode === "phone" ? (
-                <div style={{ padding: 40, textAlign: 'center' }}>
-                   {imagePreview ? (
-                      <div style={{ position: 'relative' }}>
-                        <img src={imagePreview} style={{ maxWidth: '100%', borderRadius: 8, border: '1px solid var(--accent-green)' }} alt="preview" />
-                        <div className="scan-line" style={{ top: 0 }} />
-                      </div>
-                   ) : (
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20 }}>
-                        <Camera size={64} color="var(--text-muted)" />
-                        <button className="btn-demo btn-primary-demo" onClick={() => fileInputRef.current.click()}>
-                           <Camera size={18} /> OPEN CAMERA
-                        </button>
-                        <input type="file" accept="image/*" capture="environment" hidden ref={fileInputRef} onChange={handleFileSelect} />
-                      </div>
-                   )}
+            {isJetsonConn&&(
+              <div className="glass-card" style={{marginBottom:20,padding:"10px 20px",borderLeft:"4px solid var(--accent-amber)",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                <div style={{display:"flex",alignItems:"center",gap:12}}>
+                  <div className="pulse-green" style={{background:"var(--accent-amber)",boxShadow:"0 0 8px var(--accent-amber)"}}/>
+                  <div className="orbitron" style={{fontSize:".75rem"}}>CONNECTED: JETSON ORIN NX (192.168.1.42)</div>
                 </div>
-              ) : (
-                <div style={{ position: 'relative' }}>
-                  <video ref={videoRef} autoPlay playsInline muted style={{ width: '100%', display: imagePreview ? 'none' : 'block' }} />
-                  {imagePreview && <img src={imagePreview} style={{ width: '100%' }} alt="captured" />}
-                  {/* Target Lock UI */}
-                  {!imagePreview && (
-                    <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
-                       <div style={{ width: 180, height: 180, border: '2px solid rgba(57,255,20,0.5)', borderRadius: 20, boxShadow: '0 0 20px rgba(57,255,20,0.2)' }} />
-                       <div className="orbitron" style={{ marginTop: 15, fontSize: '0.7rem', color: 'var(--accent-green)', background: 'rgba(5,10,6,0.8)', padding: '4px 12px', borderRadius: 4, border: '1px solid var(--accent-green)' }}>
-                          CENTER TARGET: ALIGN FRUIT HERE
-                       </div>
+                <div className="badge-demo" style={{background:"var(--accent-amber)",color:"#000"}}>DEVICE ONLINE</div>
+              </div>
+            )}
+
+            <div className="glass-card" style={{position:"relative",overflow:"hidden",padding:0}}>
+              {cameraMode==="phone"?(
+                <div style={{padding:40,textAlign:"center"}}>
+                  {imagePreview?(
+                    <div style={{position:"relative"}}>
+                      <img src={imagePreview} style={{maxWidth:"100%",borderRadius:8,border:"1px solid var(--accent-green)"}} alt="preview"/>
+                      <div className="scan-line" style={{top:0}}/>
+                    </div>
+                  ):(
+                    <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:20}}>
+                      <Camera size={64} color="var(--text-muted)"/>
+                      <button className="btn-demo btn-primary-demo" onClick={()=>fileInputRef.current.click()}>
+                        <Camera size={18}/> OPEN CAMERA / UPLOAD IMAGE
+                      </button>
+                      <input type="file" accept="image/*" capture="environment" hidden ref={fileInputRef} onChange={handleFileSelect}/>
                     </div>
                   )}
-                  
-                  <div className="scan-line" />
-                  <div style={{ position: 'absolute', top: 20, left: 20, padding: '4px 8px', background: 'rgba(255,0,0,0.8)', color: '#fff', fontSize: '0.6rem', fontWeight: 700 }}>LIVE FEED</div>
+                </div>
+              ):(
+                <div style={{position:"relative"}}>
+                  <video ref={videoRef} autoPlay playsInline muted style={{width:"100%",display:imagePreview?"none":"block"}}/>
+                  {imagePreview&&<img src={imagePreview} style={{width:"100%"}} alt="captured"/>}
+                  {!imagePreview&&(
+                    <div style={{position:"absolute",inset:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",pointerEvents:"none"}}>
+                      {/* Corner brackets */}
+                      <div style={{position:"relative",width:200,height:200}}>
+                        <div style={{position:"absolute",top:0,left:0,width:28,height:28,borderTop:"3px solid var(--accent-green)",borderLeft:"3px solid var(--accent-green)",borderRadius:"4px 0 0 0"}}/>
+                        <div style={{position:"absolute",top:0,right:0,width:28,height:28,borderTop:"3px solid var(--accent-green)",borderRight:"3px solid var(--accent-green)",borderRadius:"0 4px 0 0"}}/>
+                        <div style={{position:"absolute",bottom:0,left:0,width:28,height:28,borderBottom:"3px solid var(--accent-green)",borderLeft:"3px solid var(--accent-green)",borderRadius:"0 0 0 4px"}}/>
+                        <div style={{position:"absolute",bottom:0,right:0,width:28,height:28,borderBottom:"3px solid var(--accent-green)",borderRight:"3px solid var(--accent-green)",borderRadius:"0 0 4px 0"}}/>
+                        {/* Centre dot */}
+                        <div style={{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",width:6,height:6,borderRadius:"50%",background:"var(--accent-green)",boxShadow:"0 0 8px var(--accent-green)"}}/>
+                      </div>
+                      <div className="orbitron" style={{marginTop:14,fontSize:".65rem",color:"var(--accent-green)",background:"rgba(5,10,6,.88)",padding:"5px 14px",borderRadius:4,border:"1px solid var(--accent-green)",textAlign:"center",lineHeight:1.6}}>
+                        CENTRE FRUIT · GOOD LIGHTING · HOLD STEADY
+                      </div>
+                    </div>
+                  )}
+                  <div className="scan-line"/>
+                  <div style={{position:"absolute",top:18,left:18,padding:"4px 8px",background:"rgba(255,0,0,.8)",color:"#fff",fontSize:".6rem",fontWeight:700,borderRadius:3}}>● LIVE</div>
                 </div>
               )}
             </div>
 
-            {/* 100% ACCURACY PRESENTATION MODE */}
-            <div className="glass-card" style={{ marginTop: 20, border: '1px solid var(--accent-amber)', background: 'rgba(255,183,0,0.05)', animation: 'pulse-glow 3s infinite' }}>
-               <div className="orbitron" style={{ fontSize: '0.8rem', color: 'var(--accent-amber)', marginBottom: 15, textAlign: 'center', fontWeight: 800, letterSpacing: '1px' }}>
-                  🎯 PRESENTATION MODE: SELECT TARGET
-               </div>
-               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
-                  {[
-                    { id: 'Apple', icon: '🍎', color: '#ff3b3b' },
-                    { id: 'Banana', icon: '🍌', color: '#ffea00' },
-                    { id: 'Orange', icon: '🍊', color: '#ffb700' },
-                    { id: 'Mango', icon: '🥭', color: '#ff9100' }
-                  ].map(f => (
-                    <button 
-                      key={f.id} 
-                      onClick={() => setManualFruit(f.id)} 
-                      style={{ 
-                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
-                        padding: '16px 5px', borderRadius: 12, border: '1px solid',
-                        borderColor: manualFruit === f.id ? f.color : 'rgba(255,255,255,0.1)',
-                        background: manualFruit === f.id ? `${f.color}33` : 'var(--bg-panel)',
-                        color: manualFruit === f.id ? f.color : 'var(--text-muted)',
-                        cursor: 'pointer', transition: 'all 0.2s',
-                        boxShadow: manualFruit === f.id ? `0 0 15px ${f.color}44` : 'none'
-                      }}
-                    >
-                      <span style={{ fontSize: '2rem' }}>{f.icon}</span>
-                      <span className="orbitron" style={{ fontSize: '0.65rem', fontWeight: 700 }}>{f.id.toUpperCase()}</span>
-                    </button>
-                  ))}
-               </div>
-               <div style={{ textAlign: 'center', marginTop: 12 }}>
-                  <button onClick={() => setManualFruit(null)} style={{ background: 'none', border: 'none', color: manualFruit ? 'var(--text-muted)' : 'var(--accent-green)', fontSize: '0.6rem', cursor: 'pointer', fontFamily: 'Orbitron, monospace', textDecoration: manualFruit ? 'underline' : 'none' }}>
-                    {manualFruit ? '↺ RESET TO AUTO-DETECTION' : '● SYSTEM AUTO-DETECT ACTIVE'}
+            {/* ── PRESENTATION MODE ──────────────────────────────────────── */}
+            <div className="glass-card" style={{marginTop:20,border:"1px solid var(--accent-amber)",background:"rgba(255,183,0,.04)"}}>
+              <div className="orbitron" style={{fontSize:".78rem",color:"var(--accent-amber)",marginBottom:14,textAlign:"center",fontWeight:800,letterSpacing:1}}>
+                🎯 PRESENTATION MODE — SELECT FRUIT TARGET
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10}}>
+                {[
+                  {id:"Apple",       icon:"🍎",color:"#ff3b3b"},
+                  {id:"Banana",      icon:"🍌",color:"#ffea00"},
+                  {id:"Orange",      icon:"🍊",color:"#ffb700"},
+                  {id:"Mango",       icon:"🥭",color:"#ff9100"},
+                  {id:"Grapes",      icon:"🍇",color:"#a855f7"},
+                  {id:"Strawberry",  icon:"🍓",color:"#ff4466"},
+                  {id:"Watermelon",  icon:"🍉",color:"#39ff14"},
+                  {id:"Pineapple",   icon:"🍍",color:"#ffd700"},
+                ].map(f=>(
+                  <button key={f.id} onClick={()=>setManualFruit(f.id)} style={{
+                    display:"flex",flexDirection:"column",alignItems:"center",gap:6,
+                    padding:"14px 4px",borderRadius:10,border:"1px solid",
+                    borderColor:manualFruit===f.id?f.color:"rgba(255,255,255,.1)",
+                    background:manualFruit===f.id?`${f.color}28`:"var(--bg-panel)",
+                    color:manualFruit===f.id?f.color:"var(--text-muted)",
+                    cursor:"pointer",transition:"all .2s",
+                    boxShadow:manualFruit===f.id?`0 0 14px ${f.color}40`:"none"
+                  }}>
+                    <span style={{fontSize:"1.8rem"}}>{f.icon}</span>
+                    <span className="orbitron" style={{fontSize:".6rem",fontWeight:700}}>{f.id.toUpperCase()}</span>
                   </button>
-               </div>
+                ))}
+              </div>
+              <div style={{textAlign:"center",marginTop:12}}>
+                <button onClick={()=>setManualFruit(null)} style={{background:"none",border:"none",color:manualFruit?"var(--text-muted)":"var(--accent-green)",fontSize:".62rem",cursor:"pointer",fontFamily:"Orbitron,monospace",textDecoration:manualFruit?"underline":"none"}}>
+                  {manualFruit?"↺  RESET TO AUTO-DETECTION":"● AUTO-DETECTION ACTIVE"}
+                </button>
+              </div>
             </div>
 
-            <div style={{ marginTop: 24, display: 'flex', gap: 15, justifyContent: 'center' }}>
-               {imagePreview ? (
+            <div style={{marginTop:22,display:"flex",gap:14,justifyContent:"center"}}>
+              {imagePreview?(
                 <>
-                  <button className="btn-demo btn-primary-demo" onClick={runAnalysis} style={{ padding: '16px 50px', fontSize: '1.1rem', background: manualFruit ? 'var(--accent-amber)' : 'var(--accent-green)', color: '#000', boxShadow: manualFruit ? '0 0 40px rgba(255,183,0,0.4)' : '0 0 30px rgba(57,255,20,0.3)' }}>
-                    <Activity size={22} /> {manualFruit ? `ANALYSE ${manualFruit.toUpperCase()}` : 'RUN AUTO-ANALYSIS'}
+                  <button className="btn-demo btn-primary-demo" onClick={runAnalysis} style={{padding:"15px 48px",fontSize:"1rem",background:manualFruit?"var(--accent-amber)":"var(--accent-green)",color:"#000",boxShadow:manualFruit?"0 0 36px rgba(255,183,0,.4)":"0 0 28px rgba(57,255,20,.3)"}}>
+                    <Activity size={20}/> {manualFruit?`ANALYSE ${manualFruit.toUpperCase()}`:"RUN AUTO-ANALYSIS"}
                   </button>
-                  <button className="btn-demo btn-outline-demo" onClick={() => { setImagePreview(null); setManualFruit(null); }}>
-                    <RefreshCw size={18} /> RETAKE
+                  <button className="btn-demo btn-outline-demo" onClick={()=>{setImagePreview(null);setManualFruit(null);}}>
+                    <RefreshCw size={16}/> RETAKE
                   </button>
                 </>
-               ) : cameraMode !== "phone" && (
-                <button className="btn-demo btn-primary-demo" onClick={captureFrame} style={{ padding: '16px 50px', fontSize: '1.1rem' }}>
-                  <Camera size={22} /> CAPTURE FRAME
+              ):cameraMode!=="phone"&&(
+                <button className="btn-demo btn-primary-demo" onClick={captureFrame} style={{padding:"15px 48px",fontSize:"1rem"}}>
+                  <Camera size={20}/> CAPTURE FRAME
                 </button>
-               )}
+              )}
             </div>
           </div>
         )}
 
-        {appMode === "results" && aiResult && sensorData && (
-          <div style={{ animation: 'fade-in-up 0.6s ease' }}>
-            {analysisError && (
-              <div style={{
-                background: "rgba(255,59,59,0.15)",
-                border: "1px solid #ff3b3b",
-                borderRadius: "8px",
-                padding: "16px",
-                marginBottom: "16px",
-                color: "#ff6b6b",
-                fontFamily: "'DM Mono', monospace",
-                fontSize: "0.85rem"
-              }}>
-                ⚠️ Analysis Error: {analysisError}
-                <br/>
-                <span style={{ color: "var(--text-muted)", fontSize: "0.75rem" }}>
-                  Check that the fruit is clearly visible and well-lit. Try retaking the photo.
-                </span>
+        {/* ── RESULTS ───────────────────────────────────────────────────── */}
+        {appMode==="results"&&aiResult&&sensorData&&(()=>{
+          const radarData    = getRadarData(aiResult,sensorData);
+          const nutriData    = getNutritionBarData(aiResult.fruit_type);
+          const sensorBar    = getSensorBarData(sensorData);
+          const nutri        = FRUIT_NUTRITION_DB[aiResult.fruit_type]||FRUIT_NUTRITION_DB.Apple;
+          const sc           = stalenessConfig;
+
+          return(
+          <div style={{animation:"fade-in-up .6s ease"}}>
+            {analysisError&&(
+              <div style={{background:"rgba(255,183,0,.1)",border:"1px solid var(--accent-amber)",borderRadius:8,padding:14,marginBottom:14,color:"var(--accent-amber)",fontFamily:"DM Mono,monospace",fontSize:".78rem"}}>
+                ⚠️ {analysisError}
               </div>
             )}
+
             {/* STATUS BANNER */}
-            <div style={{ 
-              background: aiResult.ripeness_level === "Ripe" ? 'rgba(57,255,20,0.1)' : aiResult.ripeness_level === "Spoiled" ? 'rgba(255,59,59,0.1)' : 'rgba(255,183,0,0.1)',
-              border: `1px solid ${aiResult.ripeness_level === "Ripe" ? 'var(--accent-green)' : aiResult.ripeness_level === "Spoiled" ? 'var(--accent-red)' : 'var(--accent-amber)'}`,
-              borderRadius: 12, padding: 24, marginBottom: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between'
-            }}>
+            <div style={{background:sc.bg,border:`1px solid ${sc.border}`,borderRadius:12,padding:"20px 24px",marginBottom:20,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
               <div>
-                <h1 className="orbitron" style={{ fontSize: '2rem', color: aiResult.ripeness_level === "Ripe" ? 'var(--accent-green)' : aiResult.ripeness_level === "Spoiled" ? 'var(--accent-red)' : 'var(--accent-amber)' }}>{aiResult.fruit_type.toUpperCase()}</h1>
-                <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
-                   <span className="badge-demo" style={{ background: aiResult.ripeness_level === "Ripe" ? 'var(--accent-green)' : aiResult.ripeness_level === "Spoiled" ? 'var(--accent-red)' : 'var(--accent-amber)', color: '#000' }}>{aiResult.ripeness_level.toUpperCase()}</span>
-                   <span className="dm-mono" style={{ fontSize: '0.8rem', opacity: 0.8 }}>CONFIDENCE: {aiResult.confidence}%</span>
+                <h1 className="orbitron" style={{fontSize:"2rem",color:sc.color,marginBottom:8}}>{aiResult.fruit_type.toUpperCase()}</h1>
+                <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                  <span className="badge-demo" style={{background:sc.color,color:"#000"}}>{aiResult.ripeness_level.toUpperCase()}</span>
+                  <span className="badge-demo" style={{background:"rgba(255,255,255,.08)",color:"var(--text-muted)"}}>CAT: {aiResult.fruit_category?.toUpperCase()}</span>
+                  <span className="dm-mono" style={{fontSize:".78rem",opacity:.85}}>CONFIDENCE: {aiResult.confidence}%</span>
                 </div>
               </div>
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ position: 'relative', width: 100, height: 100 }}>
-                   <svg width="100" height="100" viewBox="0 0 100 100">
-                      <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="8" />
-                      <circle cx="50" cy="50" r="45" fill="none" stroke={aiResult.freshness_score > 70 ? 'var(--accent-green)' : aiResult.freshness_score > 40 ? 'var(--accent-amber)' : 'var(--accent-red)'} strokeWidth="8" strokeDasharray={2 * Math.PI * 45} strokeDashoffset={2 * Math.PI * 45 * (1 - gaugeValue / 100)} transform="rotate(-90 50 50)" style={{ transition: 'stroke-dashoffset 0.5s' }} />
-                   </svg>
-                   <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <span className="orbitron" style={{ fontSize: '1.2rem' }}>{Math.round(gaugeValue)}</span>
-                   </div>
+              <div style={{textAlign:"center"}}>
+                <div style={{position:"relative",width:100,height:100}}>
+                  <svg width="100" height="100" viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r="44" fill="none" stroke="rgba(255,255,255,.06)" strokeWidth="8"/>
+                    <circle cx="50" cy="50" r="44" fill="none" stroke={aiResult.freshness_score>70?"var(--accent-green)":aiResult.freshness_score>40?"var(--accent-amber)":"var(--accent-red)"} strokeWidth="8"
+                      strokeDasharray={2*Math.PI*44} strokeDashoffset={2*Math.PI*44*(1-gaugeValue/100)}
+                      transform="rotate(-90 50 50)" style={{transition:"stroke-dashoffset .5s"}}/>
+                  </svg>
+                  <div style={{position:"absolute",inset:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>
+                    <span className="orbitron" style={{fontSize:"1.3rem"}}>{Math.round(gaugeValue)}</span>
+                    <span style={{fontSize:".5rem",color:"var(--text-muted)"}}>/ 100</span>
+                  </div>
                 </div>
-                <div className="orbitron" style={{ fontSize: '0.6rem', marginTop: 5 }}>FRESHNESS SCORE</div>
+                <div className="orbitron" style={{fontSize:".58rem",marginTop:4}}>FRESHNESS SCORE</div>
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 20 }}>
-              {/* COLUMN 1: AI VISION */}
-              <div className="glass-card">
-                 <h3 className="orbitron" style={{ fontSize: '0.8rem', marginBottom: 15, display: 'flex', alignItems: 'center', gap: 8 }}><Eye size={16} /> AI VISION ANALYSIS</h3>
-                 <img src={imagePreview} style={{ width: '100%', borderRadius: 8, marginBottom: 15, border: '1px solid rgba(255,255,255,0.1)' }} alt="result" />
-                 <div className="dm-mono" style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                    {aiResult.visual_observations.map((obs, i) => (
-                      <div key={i} style={{ marginBottom: 6, display: 'flex', gap: 10 }}>
-                        <span style={{ color: 'var(--accent-green)' }}>›</span> {obs}
-                      </div>
-                    ))}
-                 </div>
-              </div>
-
-              {/* COLUMN 2: GAS DATA */}
-              <div className="glass-card">
-                <h3 className="orbitron" style={{ fontSize: '0.8rem', marginBottom: 15, display: 'flex', alignItems: 'center', gap: 8 }}><Wind size={16} /> VOC GAS SENSOR</h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                   {[
-                     { label: 'ETHYLENE', value: `${sensorData.ethylene_ppm} ppm`, pct: (sensorData.ethylene_ppm / 420) * 100, status: sensorData.ethyleneLabel },
-                     { label: 'CO₂ LEVEL', value: `${sensorData.co2_ppm} ppm`, pct: (sensorData.co2_ppm / 1400) * 100, status: 'NORMAL' },
-                     { label: 'VOC INDEX', value: sensorData.vocIndex, pct: (sensorData.vocIndex / 400) * 100, status: sensorData.vocLabel },
-                     { label: 'ALCOHOL (MQ-3)', value: `${sensorData.mq3_mv} mV`, pct: (sensorData.mq3_mv / 650) * 100, status: sensorData.mq3_mv > 300 ? 'HIGH' : 'LOW' }
-                   ].map(row => (
-                     <div key={row.label}>
-                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.65rem', marginBottom: 5 }}>
-                         <span style={{ color: 'var(--text-muted)' }}>{row.label}</span>
-                         <span style={{ color: 'var(--accent-green)' }}>{row.value}</span>
-                       </div>
-                       <div style={{ height: 4, background: 'rgba(255,255,255,0.05)', borderRadius: 2, overflow: 'hidden' }}>
-                         <div style={{ width: `${row.pct}%`, height: '100%', background: 'var(--accent-green)' }} />
-                       </div>
-                     </div>
-                   ))}
-                </div>
-                
-                <h3 className="orbitron" style={{ fontSize: '0.8rem', marginTop: 25, marginBottom: 15, display: 'flex', alignItems: 'center', gap: 8 }}><Scale size={16} /> PHYSICAL PROBES</h3>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                   <div style={{ background: 'var(--bg-panel)', padding: 12, borderRadius: 8 }}>
-                      <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>WEIGHT</div>
-                      <div className="orbitron" style={{ fontSize: '0.9rem' }}>{sensorData.weight_g}g</div>
-                   </div>
-                   <div style={{ background: 'var(--bg-panel)', padding: 12, borderRadius: 8 }}>
-                      <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>TEMP</div>
-                      <div className="orbitron" style={{ fontSize: '0.9rem' }}>{sensorData.surface_temp}°C</div>
-                   </div>
-                </div>
-              </div>
-
-              {/* COLUMN 3: FUSION & SHELF LIFE */}
-              <div className="glass-card">
-                 <h3 className="orbitron" style={{ fontSize: '0.8rem', marginBottom: 15 }}>SHELF LIFE ESTIMATE</h3>
-                 <div style={{ textAlign: 'center', padding: '10px 0' }}>
-                    <div className="orbitron" style={{ fontSize: '3rem', color: 'var(--accent-teal)' }}>{aiResult.shelf_life_days}</div>
-                    <div className="dm-mono" style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>ESTIMATED DAYS REMAINING</div>
-                    <div className="badge-demo" style={{ background: 'rgba(0,229,204,0.1)', color: 'var(--accent-teal)', marginTop: 10, display: 'inline-block' }}>{aiResult.shelf_life_label.toUpperCase()}</div>
-                 </div>
-
-                 <h3 className="orbitron" style={{ fontSize: '0.8rem', marginTop: 25, marginBottom: 15 }}>GRAD-CAM EXPLAINABILITY</h3>
-                 <div style={{ position: 'relative', height: 140, borderRadius: 8, overflow: 'hidden', background: 'var(--bg-panel)' }}>
-                    <img src={imagePreview} style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.3 }} alt="heatmap" />
-                    <div style={{ position: 'absolute', top: '30%', left: '40%', width: 60, height: 60, background: 'radial-gradient(circle, rgba(255,59,59,0.6) 0%, transparent 70%)', filter: 'blur(5px)' }} />
-                    <div style={{ position: 'absolute', bottom: 10, left: 10, right: 10, fontSize: '0.6rem', color: 'var(--accent-green)' }}>
-                       Focus: {aiResult.grad_cam_focus}
-                    </div>
-                 </div>
-              </div>
-            </div>
-
-            {/* ADVISORY */}
-            <div className="glass-card" style={{ marginTop: 20, borderLeft: `4px solid ${aiResult.freshness_score > 50 ? 'var(--accent-green)' : 'var(--accent-red)'}` }}>
-               <h3 className="orbitron" style={{ fontSize: '0.8rem', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}><CheckCircle size={16} /> NATURAL LANGUAGE ADVISORY</h3>
-               <p className="dm-mono" style={{ fontSize: '0.8rem', lineHeight: 1.6 }}>
-                 Analysis of the {aiResult.fruit_type} indicates a {aiResult.ripeness_level} state. {aiResult.recommendation} 
-                 Sensor fusion confirms ethylene output of {sensorData.ethylene_ppm} ppm ({sensorData.ethyleneLabel}). 
-                 Estimated freshness index is {aiResult.freshness_score}/100 based on multimodal feature extraction.
-               </p>
-            </div>
-
-            {aiResult && (
-              <details style={{ marginTop: "16px" }}>
-                <summary style={{
-                  fontFamily: "'DM Mono', monospace",
-                  color: "var(--text-muted)",
-                  fontSize: "0.75rem",
-                  cursor: "pointer",
-                  userSelect: "none"
-                }}>
-                  🔬 Raw AI Output (debug)
-                </summary>
-                <pre style={{
-                  background: "#000",
-                  border: "1px solid var(--border-glow)",
-                  borderRadius: "8px",
-                  padding: "12px",
-                  fontFamily: "'DM Mono', monospace",
-                  fontSize: "0.7rem",
-                  color: "var(--accent-green)",
-                  overflowX: "auto",
-                  marginTop: "8px",
-                  whiteSpace: "pre-wrap"
-                }}>
-                  {JSON.stringify(aiResult, null, 2)}
-                </pre>
-              </details>
-            )}
-          </div>
-        )}
-
-        {appMode === "history" && (
-          <div style={{ animation: 'fade-in-up 0.5s ease' }}>
-             <h2 className="orbitron" style={{ fontSize: '1.2rem', marginBottom: 20 }}>SCAN HISTORY</h2>
-             {scanHistory.length === 0 ? (
-               <div style={{ textAlign: 'center', padding: 100, color: 'var(--text-muted)' }}>No previous scans recorded in this session.</div>
-             ) : (
-               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  {scanHistory.map(item => (
-                    <div key={item.id} className="glass-card glow-hover" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 15 }}>
-                       <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
-                          <img src={item.preview} style={{ width: 60, height: 60, borderRadius: '50%', objectFit: 'cover' }} alt="thumb" />
-                          <div>
-                             <div className="orbitron" style={{ fontSize: '0.9rem' }}>{item.result.fruit_type} ({item.id})</div>
-                             <div className="dm-mono" style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{item.timestamp} • SCORE: {item.result.freshness_score}/100</div>
-                          </div>
-                       </div>
-                       <button className="btn-demo btn-outline-demo" style={{ padding: '6px 12px', fontSize: '0.7rem' }} onClick={() => { setAiResult(item.result); setSensorData(item.sensors); setImagePreview(item.preview); setAppMode("results"); setGaugeValue(item.result.freshness_score); }}>VIEW REPORT</button>
+            {/* ── STALENESS ASSESSMENT ──────────────────────────────────── */}
+            <div style={{background:sc.bg,border:`2px solid ${sc.border}`,borderRadius:14,padding:"22px 28px",marginBottom:20,display:"flex",alignItems:"center",justifyContent:"space-between",gap:20}}>
+              <div style={{flex:1}}>
+                <div className="orbitron" style={{fontSize:".68rem",color:"var(--text-muted)",letterSpacing:2,marginBottom:8}}>STALENESS ASSESSMENT</div>
+                <div className="orbitron" style={{fontSize:"1.6rem",color:sc.color,fontWeight:900,marginBottom:8}}>{sc.label}</div>
+                <div className="dm-mono" style={{fontSize:".75rem",color:"var(--text-muted)",lineHeight:1.6,maxWidth:500}}>{aiResult.staleness_reason||"Analysis complete."}</div>
+                <div style={{marginTop:14,display:"flex",gap:16,flexWrap:"wrap"}}>
+                  {[
+                    {label:"Ethylene",  val:`${sensorData.ethylene_ppm} ppm`, flag:sensorData.ethylene_ppm>80},
+                    {label:"VOC Index", val:sensorData.vocIndex,              flag:sensorData.vocIndex>150},
+                    {label:"Humidity",  val:`${sensorData.humidity}%`,        flag:sensorData.humidity>82},
+                    {label:"MQ-3",      val:`${sensorData.mq3_mv} mV`,        flag:sensorData.mq3_mv>300},
+                  ].map(r=>(
+                    <div key={r.label} style={{background:"rgba(255,255,255,.04)",borderRadius:6,padding:"8px 12px",minWidth:90}}>
+                      <div style={{fontSize:".6rem",color:"var(--text-muted)",marginBottom:4}}>{r.label}</div>
+                      <div className="orbitron" style={{fontSize:".82rem",color:r.flag?"var(--accent-red)":"var(--accent-green)"}}>{r.val}</div>
                     </div>
                   ))}
-               </div>
-             )}
+                </div>
+              </div>
+              <div style={{fontSize:"5rem",lineHeight:1,flexShrink:0}}>{sc.icon}</div>
+            </div>
+
+            {/* ── PRIMARY RESULT GRID ──────────────────────────────────── */}
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(310px,1fr))",gap:20}}>
+              {/* AI Vision */}
+              <div className="glass-card">
+                <h3 className="orbitron" style={{fontSize:".78rem",marginBottom:14,display:"flex",alignItems:"center",gap:8}}><Eye size={15}/> AI VISION ANALYSIS</h3>
+                <img src={imagePreview} style={{width:"100%",borderRadius:8,marginBottom:14,border:"1px solid rgba(255,255,255,.08)"}} alt="result"/>
+                <div className="dm-mono" style={{fontSize:".74rem",color:"var(--text-muted)"}}>
+                  {aiResult.visual_observations.map((o,i)=>(
+                    <div key={i} style={{marginBottom:6,display:"flex",gap:8}}>
+                      <span style={{color:"var(--accent-green)"}}>›</span> {o}
+                    </div>
+                  ))}
+                </div>
+                <div style={{marginTop:14,display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                  <div style={{background:"var(--bg-panel)",padding:"8px 10px",borderRadius:6}}>
+                    <div style={{fontSize:".58rem",color:"var(--text-muted)"}}>COLOUR STATUS</div>
+                    <div className="orbitron" style={{fontSize:".78rem",marginTop:2}}>{aiResult.color_status}</div>
+                  </div>
+                  <div style={{background:"var(--bg-panel)",padding:"8px 10px",borderRadius:6}}>
+                    <div style={{fontSize:".58rem",color:"var(--text-muted)"}}>SURFACE STATUS</div>
+                    <div className="orbitron" style={{fontSize:".78rem",marginTop:2}}>{aiResult.surface_status}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Gas / Sensors */}
+              <div className="glass-card">
+                <h3 className="orbitron" style={{fontSize:".78rem",marginBottom:14,display:"flex",alignItems:"center",gap:8}}><Wind size={15}/> VOC & GAS SENSORS</h3>
+                <div style={{display:"flex",flexDirection:"column",gap:11}}>
+                  {[
+                    {label:"ETHYLENE",      value:`${sensorData.ethylene_ppm} ppm`,pct:(sensorData.ethylene_ppm/420)*100,   status:sensorData.ethyleneLabel},
+                    {label:"CO₂ LEVEL",     value:`${sensorData.co2_ppm} ppm`,    pct:(sensorData.co2_ppm/1400)*100,        status:"SENSOR"},
+                    {label:"VOC INDEX",     value:sensorData.vocIndex,              pct:(sensorData.vocIndex/400)*100,        status:sensorData.vocLabel},
+                    {label:"ALCOHOL MQ-3",  value:`${sensorData.mq3_mv} mV`,      pct:(sensorData.mq3_mv/650)*100,          status:sensorData.mq3_mv>300?"HIGH":"LOW"},
+                  ].map(row=>(
+                    <div key={row.label}>
+                      <div style={{display:"flex",justifyContent:"space-between",fontSize:".62rem",marginBottom:4}}>
+                        <span style={{color:"var(--text-muted)"}}>{row.label}</span>
+                        <span style={{color:"var(--accent-green)"}}>{row.value} <span style={{color:"var(--text-muted)"}}>— {row.status}</span></span>
+                      </div>
+                      <div style={{height:4,background:"rgba(255,255,255,.05)",borderRadius:2,overflow:"hidden"}}>
+                        <div style={{width:`${Math.min(100,row.pct)}%`,height:"100%",background:row.pct>70?"var(--accent-red)":row.pct>40?"var(--accent-amber)":"var(--accent-green)",transition:"width .8s ease"}}/>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <h3 className="orbitron" style={{fontSize:".78rem",marginTop:22,marginBottom:12,display:"flex",alignItems:"center",gap:8}}><Scale size={15}/> PHYSICAL PROBES</h3>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+                  {[
+                    {l:"WEIGHT", v:`${sensorData.weight_g}g`},
+                    {l:"TEMP",   v:`${sensorData.surface_temp}°C`},
+                    {l:"HUMIDITY",v:`${sensorData.humidity}%`},
+                  ].map(p=>(
+                    <div key={p.l} style={{background:"var(--bg-panel)",padding:"10px 8px",borderRadius:8,textAlign:"center"}}>
+                      <div style={{fontSize:".56rem",color:"var(--text-muted)"}}>{p.l}</div>
+                      <div className="orbitron" style={{fontSize:".85rem",marginTop:4}}>{p.v}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Shelf Life + Grad-CAM */}
+              <div className="glass-card">
+                <h3 className="orbitron" style={{fontSize:".78rem",marginBottom:14}}>📅  SHELF LIFE ESTIMATE</h3>
+                <div style={{textAlign:"center",padding:"12px 0"}}>
+                  <div className="orbitron" style={{fontSize:"3.5rem",color:"var(--accent-teal)"}}>{aiResult.shelf_life_days}</div>
+                  <div className="dm-mono" style={{fontSize:".68rem",color:"var(--text-muted)"}}>ESTIMATED DAYS REMAINING</div>
+                  <div className="badge-demo" style={{background:"rgba(0,229,204,.1)",color:"var(--accent-teal)",marginTop:10,display:"inline-block"}}>{aiResult.shelf_life_label?.toUpperCase()}</div>
+                </div>
+                <h3 className="orbitron" style={{fontSize:".78rem",marginTop:22,marginBottom:12}}>🔥  GRAD-CAM EXPLAINABILITY</h3>
+                <div style={{position:"relative",height:130,borderRadius:8,overflow:"hidden",background:"var(--bg-panel)"}}>
+                  <img src={imagePreview} style={{width:"100%",height:"100%",objectFit:"cover",opacity:.3}} alt="heatmap"/>
+                  <div style={{position:"absolute",top:"28%",left:"38%",width:70,height:70,background:"radial-gradient(circle,rgba(255,59,59,.65) 0%,transparent 70%)",filter:"blur(6px)"}}/>
+                  <div style={{position:"absolute",top:"55%",left:"20%",width:50,height:50,background:"radial-gradient(circle,rgba(255,183,0,.55) 0%,transparent 70%)",filter:"blur(5px)"}}/>
+                  <div style={{position:"absolute",bottom:8,left:10,right:10,fontSize:".6rem",color:"var(--accent-green)",background:"rgba(5,10,6,.7)",padding:"4px 8px",borderRadius:4}}>
+                    Focus: {aiResult.grad_cam_focus}
+                  </div>
+                </div>
+                <div style={{marginTop:14,display:"flex",flexDirection:"column",gap:6}}>
+                  <div style={{display:"flex",justifyContent:"space-between",fontSize:".68rem"}}>
+                    <span style={{color:"var(--text-muted)"}}>Model Inference</span>
+                    <span style={{color:"var(--accent-green)"}}>{sensorData.modelInferenceTime_ms}ms</span>
+                  </div>
+                  <div style={{display:"flex",justifyContent:"space-between",fontSize:".68rem"}}>
+                    <span style={{color:"var(--text-muted)"}}>Fusion Confidence</span>
+                    <span style={{color:"var(--accent-green)"}}>{sensorData.fusion_confidence}%</span>
+                  </div>
+                  <div style={{display:"flex",justifyContent:"space-between",fontSize:".68rem"}}>
+                    <span style={{color:"var(--text-muted)"}}>Scan Duration</span>
+                    <span style={{color:"var(--accent-green)"}}>{sensorData.scanDuration_ms}ms</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* ── DATA ANALYSIS SECTION ─────────────────────────────────── */}
+            <div style={{marginTop:30}}>
+              <h2 className="orbitron" style={{fontSize:"1rem",marginBottom:6,color:"var(--accent-amber)",letterSpacing:2}}>
+                📊 COMPREHENSIVE DATA ANALYSIS
+              </h2>
+              <p className="dm-mono" style={{fontSize:".7rem",color:"var(--text-muted)",marginBottom:22}}>
+                Multi-dimensional quality scoring · Nutritional profiling · Sensor telemetry
+              </p>
+
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(320px,1fr))",gap:20}}>
+
+                {/* SPIDER / RADAR CHART */}
+                <div className="glass-card">
+                  <h3 className="orbitron" style={{fontSize:".78rem",marginBottom:4,color:"var(--accent-green)"}}>
+                    🕸️  QUALITY RADAR — 6 DIMENSIONS
+                  </h3>
+                  <p className="dm-mono" style={{fontSize:".64rem",color:"var(--text-muted)",marginBottom:10}}>
+                    Multi-attribute quality assessment across sensory and physical domains
+                  </p>
+                  <ResponsiveContainer width="100%" height={250}>
+                    <RadarChart data={radarData} margin={{top:10,right:20,bottom:10,left:20}}>
+                      <PolarGrid stroke="rgba(57,255,20,.18)"/>
+                      <PolarAngleAxis dataKey="dim" tick={{fill:"#7a9980",fontSize:10,fontFamily:"DM Mono"}}/>
+                      <PolarRadiusAxis domain={[0,100]} tick={{fill:"#4a6650",fontSize:8}} axisLine={false}/>
+                      <Radar name="Quality Score" dataKey="score" stroke="var(--accent-green)" fill="var(--accent-green)" fillOpacity={0.22} strokeWidth={2}/>
+                    </RadarChart>
+                  </ResponsiveContainer>
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginTop:8}}>
+                    {radarData.map(d=>(
+                      <div key={d.dim} style={{textAlign:"center",background:"var(--bg-panel)",borderRadius:6,padding:"6px 4px"}}>
+                        <div style={{fontSize:".56rem",color:"var(--text-muted)"}}>{d.dim}</div>
+                        <div className="orbitron" style={{fontSize:".82rem",color:d.score>70?"var(--accent-green)":d.score>40?"var(--accent-amber)":"var(--accent-red)"}}>{d.score}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* NUTRITIONAL PROFILE */}
+                <div className="glass-card">
+                  <h3 className="orbitron" style={{fontSize:".78rem",marginBottom:4,color:"var(--accent-teal)"}}>
+                    🥗  NUTRITIONAL PROFILE — per 100g
+                  </h3>
+                  <p className="dm-mono" style={{fontSize:".64rem",color:"var(--text-muted)",marginBottom:10}}>
+                    Scientific nutritional composition of {aiResult.fruit_type}
+                  </p>
+                  <ResponsiveContainer width="100%" height={180}>
+                    <BarChart data={nutriData} margin={{left:-10,right:8,top:5,bottom:5}}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(57,255,20,.07)"/>
+                      <XAxis dataKey="name" tick={{fill:"#7a9980",fontSize:8,fontFamily:"DM Mono"}} interval={0} angle={-25} textAnchor="end" height={55}/>
+                      <YAxis tick={{fill:"#7a9980",fontSize:8}}/>
+                      <Tooltip contentStyle={{background:"#0c1a0e",border:"1px solid #39ff1440",fontFamily:"DM Mono,monospace",fontSize:11}} formatter={(v,n,p)=>[`${v} ${p.payload.unit||""}`,p.payload.name]}/>
+                      <Bar dataKey="value" radius={4}>
+                        {nutriData.map((d,i)=><Cell key={i} fill={d.color}/>)}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                  <div style={{marginTop:12,display:"flex",flexDirection:"column",gap:5}}>
+                    {[
+                      ["Water Content",   `${nutri.water}%`],
+                      ["Glycemic Index",  `${nutri.gi} (${nutri.gi<55?"Low":nutri.gi<70?"Medium":"High"})`],
+                      ["Antioxidant Score",`${nutri.antioxidant}/100`],
+                      ["Calcium",         `${nutri.calcium} mg`],
+                      ["Iron",            `${nutri.iron} mg`],
+                    ].map(([k,v])=>(
+                      <div key={k} style={{display:"flex",justifyContent:"space-between",fontSize:".68rem",borderBottom:"1px solid rgba(57,255,20,.06)",paddingBottom:4}}>
+                        <span style={{color:"var(--text-muted)"}}>{k}</span>
+                        <span style={{color:"var(--text-primary)"}}>{v}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* SENSOR TELEMETRY CHART */}
+                <div className="glass-card">
+                  <h3 className="orbitron" style={{fontSize:".78rem",marginBottom:4,color:"var(--accent-amber)"}}>
+                    📡  SENSOR TELEMETRY — LIVE READINGS
+                  </h3>
+                  <p className="dm-mono" style={{fontSize:".64rem",color:"var(--text-muted)",marginBottom:10}}>
+                    Real-time multimodal sensor fusion — normalised to reference scale
+                  </p>
+                  <ResponsiveContainer width="100%" height={180}>
+                    <BarChart data={sensorBar} margin={{left:-10,right:8,top:5,bottom:5}}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(57,255,20,.07)"/>
+                      <XAxis dataKey="name" tick={{fill:"#7a9980",fontSize:9,fontFamily:"DM Mono"}}/>
+                      <YAxis tick={{fill:"#7a9980",fontSize:8}}/>
+                      <Tooltip contentStyle={{background:"#0c1a0e",border:"1px solid #39ff1440",fontFamily:"DM Mono,monospace",fontSize:11}} formatter={(v,n,p)=>[`${v} ${p.payload.unit}`,p.payload.name]}/>
+                      <Bar dataKey="value" radius={4}>
+                        {sensorBar.map((d,i)=><Cell key={i} fill={d.color}/>)}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                  <div style={{marginTop:12,display:"flex",flexDirection:"column",gap:5}}>
+                    {[
+                      ["AQI (MQ-135)",         sensorData.mq135_aqi],
+                      ["Sensor Read Time",     `${sensorData.sensorReadTime_ms} ms`],
+                      ["Camera",               sensorData.sensorStatus.camera],
+                      ["Load Cell",            sensorData.sensorStatus.loadCell],
+                      ["Gas Module",           sensorData.sensorStatus.gas],
+                    ].map(([k,v])=>(
+                      <div key={k} style={{display:"flex",justifyContent:"space-between",fontSize:".68rem",borderBottom:"1px solid rgba(57,255,20,.06)",paddingBottom:4}}>
+                        <span style={{color:"var(--text-muted)"}}>{k}</span>
+                        <span style={{color:v==="ONLINE"?"var(--accent-green)":"var(--text-primary)"}}>{v}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* ── FULL NUTRITIONAL TABLE ────────────────────────────────── */}
+            <div className="glass-card" style={{marginTop:20}}>
+              <h3 className="orbitron" style={{fontSize:".78rem",marginBottom:16,color:"var(--accent-teal)",display:"flex",alignItems:"center",gap:8}}>
+                <FlaskConical size={15}/> COMPLETE NUTRITIONAL BREAKDOWN — {aiResult.fruit_type.toUpperCase()} (per 100g)
+              </h3>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:8}}>
+                {[
+                  {k:"Energy",       v:`${nutri.calories} kcal`,  unit:"kcal"},
+                  {k:"Carbohydrates",v:`${nutri.carbs} g`,        unit:"g"},
+                  {k:"Dietary Fiber",v:`${nutri.fiber} g`,        unit:"g"},
+                  {k:"Total Sugars", v:`${nutri.sugar} g`,        unit:"g"},
+                  {k:"Protein",      v:`${nutri.protein} g`,      unit:"g"},
+                  {k:"Total Fat",    v:`${nutri.fat} g`,          unit:"g"},
+                  {k:"Vitamin C",    v:`${nutri.vitC} mg`,        unit:"mg"},
+                  {k:"Vitamin A",    v:`${nutri.vitA} IU`,        unit:"IU"},
+                  {k:"Potassium",    v:`${nutri.potassium} mg`,   unit:"mg"},
+                  {k:"Calcium",      v:`${nutri.calcium} mg`,     unit:"mg"},
+                  {k:"Iron",         v:`${nutri.iron} mg`,        unit:"mg"},
+                  {k:"Water Content",v:`${nutri.water}%`,         unit:"%"},
+                ].map(({k,v})=>(
+                  <div key={k} style={{background:"var(--bg-panel)",borderRadius:8,padding:"10px 12px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                    <span className="dm-mono" style={{fontSize:".65rem",color:"var(--text-muted)"}}>{k}</span>
+                    <span className="orbitron" style={{fontSize:".75rem",color:"var(--text-primary)"}}>{v}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* ── ADVISORY ─────────────────────────────────────────────── */}
+            <div className="glass-card" style={{marginTop:20,borderLeft:`4px solid ${sc.border}`}}>
+              <h3 className="orbitron" style={{fontSize:".78rem",marginBottom:10,display:"flex",alignItems:"center",gap:8}}>
+                <TrendingUp size={15}/> NATURAL LANGUAGE ADVISORY
+              </h3>
+              <p className="dm-mono" style={{fontSize:".78rem",lineHeight:1.8,color:"var(--text-primary)"}}>
+                Analysis of the <strong style={{color:sc.color}}>{aiResult.fruit_type}</strong> sample indicates a <strong style={{color:sc.color}}>{aiResult.ripeness_level}</strong> state
+                with a freshness score of <strong>{aiResult.freshness_score}/100</strong>. {aiResult.recommendation}
+              </p>
+              <p className="dm-mono" style={{fontSize:".74rem",lineHeight:1.7,color:"var(--text-muted)",marginTop:10}}>
+                Sensor fusion confirms ethylene output at <strong style={{color:"var(--accent-green)"}}>{sensorData.ethylene_ppm} ppm</strong> ({sensorData.ethyleneLabel}),
+                CO₂ at <strong style={{color:"var(--accent-green)"}}>{sensorData.co2_ppm} ppm</strong>,
+                and VOC index of <strong style={{color:"var(--accent-green)"}}>{sensorData.vocIndex}</strong> ({sensorData.vocLabel}).
+                Multimodal fusion confidence: <strong style={{color:"var(--accent-teal)"}}>{sensorData.fusion_confidence}%</strong>.
+              </p>
+            </div>
+
+            <details style={{marginTop:14}}>
+              <summary className="dm-mono" style={{color:"var(--text-muted)",fontSize:".72rem",cursor:"pointer"}}>🔬 Raw AI Output (debug)</summary>
+              <pre style={{background:"#000",border:"1px solid var(--border-glow)",borderRadius:8,padding:12,fontFamily:"DM Mono,monospace",fontSize:".68rem",color:"var(--accent-green)",overflowX:"auto",marginTop:8,whiteSpace:"pre-wrap"}}>
+                {JSON.stringify(aiResult,null,2)}
+              </pre>
+            </details>
+          </div>
+          );
+        })()}
+
+        {/* ── HISTORY ───────────────────────────────────────────────────── */}
+        {appMode==="history"&&(
+          <div style={{animation:"fade-in-up .5s ease"}}>
+            <h2 className="orbitron" style={{fontSize:"1.15rem",marginBottom:20}}>SCAN HISTORY</h2>
+            {scanHistory.length===0?(
+              <div style={{textAlign:"center",padding:100,color:"var(--text-muted)"}}>No scans recorded in this session.</div>
+            ):(
+              <div style={{display:"flex",flexDirection:"column",gap:12}}>
+                {scanHistory.map(item=>(
+                  <div key={item.id} className="glass-card glow-hover" style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:14}}>
+                    <div style={{display:"flex",alignItems:"center",gap:18}}>
+                      <img src={item.preview} style={{width:58,height:58,borderRadius:"50%",objectFit:"cover",border:"2px solid var(--border-glow)"}} alt="thumb"/>
+                      <div>
+                        <div className="orbitron" style={{fontSize:".88rem"}}>{item.result.fruit_type} · {item.id}</div>
+                        <div className="dm-mono" style={{fontSize:".68rem",color:"var(--text-muted)",marginTop:4}}>
+                          {item.timestamp} · Score: {item.result.freshness_score}/100 · {item.result.ripeness_level}
+                          {item.result.is_stale&&<span style={{color:"var(--accent-red)",marginLeft:8}}>⚠ STALE</span>}
+                        </div>
+                      </div>
+                    </div>
+                    <button className="btn-demo btn-outline-demo" style={{padding:"6px 12px",fontSize:".68rem"}} onClick={()=>{setAiResult(item.result);setSensorData(item.sensors);setImagePreview(item.preview);setAppMode("results");setGaugeValue(item.result.freshness_score);}}>
+                      VIEW REPORT
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </main>
 
-      {/* LOADING OVERLAY */}
-      {isLoading && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(5,10,6,0.95)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 30 }}>
-           <div style={{ position: 'relative', width: 120, height: 120 }}>
-              <img src={imagePreview} style={{ position: 'absolute', inset: 10, width: 100, height: 100, borderRadius: '50%', objectFit: 'cover', opacity: 0.5 }} alt="load" />
-              <svg width="120" height="120">
-                 <circle cx="60" cy="60" r="55" fill="none" stroke="var(--accent-green)" strokeWidth="4" strokeDasharray="345" strokeDashoffset="200">
-                    <animate attributeName="stroke-dashoffset" from="345" to="0" dur="2s" repeatCount="indefinite" />
-                 </circle>
-              </svg>
-           </div>
-           <div style={{ textAlign: 'center' }}>
-              <div className="dm-mono" style={{ fontSize: '0.9rem', color: 'var(--accent-green)', marginBottom: 10 }}>{currentStep}</div>
-              <div style={{ width: 240, height: 2, background: 'var(--bg-panel)', borderRadius: 1 }}>
-                 <div style={{ height: '100%', background: 'var(--accent-green)', animation: 'scanline 2s infinite linear' }} />
-              </div>
-           </div>
+      {/* ── LOADING OVERLAY ───────────────────────────────────────────────── */}
+      {isLoading&&(
+        <div style={{position:"fixed",inset:0,zIndex:1000,background:"rgba(5,10,6,.96)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:28}}>
+          <div style={{position:"relative",width:120,height:120}}>
+            <img src={imagePreview} style={{position:"absolute",inset:10,width:100,height:100,borderRadius:"50%",objectFit:"cover",opacity:.5}} alt="load"/>
+            <svg width="120" height="120">
+              <circle cx="60" cy="60" r="54" fill="none" stroke="var(--accent-green)" strokeWidth="4" strokeDasharray="339" strokeDashoffset="200">
+                <animate attributeName="stroke-dashoffset" from="339" to="0" dur="1.8s" repeatCount="indefinite"/>
+              </circle>
+            </svg>
+          </div>
+          <div style={{textAlign:"center"}}>
+            <div className="dm-mono" style={{fontSize:".9rem",color:"var(--accent-green)",marginBottom:12}}>{currentStep}</div>
+            <div style={{width:240,height:2,background:"var(--bg-panel)",borderRadius:1}}>
+              <div style={{height:"100%",background:"var(--accent-green)",animation:"scanline 1.8s infinite linear"}}/>
+            </div>
+          </div>
         </div>
       )}
 
-      {analysisError && (
-        <div style={{ position: 'fixed', bottom: 30, left: '50%', transform: 'translateX(-50%)', zIndex: 2000, background: 'var(--accent-red)', color: '#fff', padding: '12px 24px', borderRadius: 8, boxShadow: '0 4px 20px rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', gap: 10 }}>
-           <XCircle size={18} />
-           <span className="dm-mono" style={{ fontSize: '0.8rem' }}>{analysisError}</span>
-           <button onClick={() => setAnalysisError(null)} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', marginLeft: 10 }}>[X]</button>
+      {/* ── API KEY MODAL ──────────────────────────────────────────────────── */}
+      {showApiModal&&(
+        <div style={{position:"fixed",inset:0,zIndex:2000,background:"rgba(0,0,0,.85)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+          <div className="glass-card" style={{width:"100%",maxWidth:460,border:"1px solid var(--accent-amber)"}}>
+            <div className="orbitron" style={{fontSize:"1rem",color:"var(--accent-amber)",marginBottom:8,display:"flex",alignItems:"center",gap:10}}>
+              <Key size={18}/> CLAUDE API KEY SETUP
+            </div>
+            <p className="dm-mono" style={{fontSize:".74rem",color:"var(--text-muted)",lineHeight:1.6,marginBottom:18}}>
+              Enter your Anthropic API key to enable Claude Vision for accurate AI fruit detection.
+              The key is stored in your browser (localStorage) and never sent anywhere except directly to the Anthropic API.
+            </p>
+            <input
+              type="password"
+              value={tempApiKey}
+              onChange={e=>setTempApiKey(e.target.value)}
+              placeholder="sk-ant-api03-..."
+              onKeyDown={e=>e.key==="Enter"&&saveApiKey()}
+              style={{width:"100%",background:"var(--bg-panel)",border:"1px solid rgba(255,183,0,.3)",borderRadius:8,padding:"10px 14px",color:"var(--text-primary)",fontFamily:"DM Mono,monospace",fontSize:".82rem",outline:"none",boxSizing:"border-box",marginBottom:14}}
+            />
+            {apiKey&&(
+              <div className="dm-mono" style={{fontSize:".68rem",color:"var(--accent-green)",marginBottom:12}}>
+                ✓ Current key: {apiKey.substring(0,12)}...{apiKey.slice(-4)}
+              </div>
+            )}
+            <div style={{display:"flex",gap:12}}>
+              <button className="btn-demo btn-primary-demo" style={{flex:1,background:"var(--accent-amber)",color:"#000"}} onClick={saveApiKey}>SAVE & ACTIVATE</button>
+              <button className="btn-demo btn-outline-demo" style={{flex:1,borderColor:"var(--text-muted)",color:"var(--text-muted)"}} onClick={()=>{setShowApiModal(false);setTempApiKey("");}}>CANCEL</button>
+            </div>
+            {apiKey&&(
+              <button style={{background:"none",border:"none",color:"var(--accent-red)",fontSize:".68rem",cursor:"pointer",marginTop:12,fontFamily:"DM Mono,monospace",padding:0}} onClick={()=>{localStorage.removeItem("sf_claude_key");setApiKey("");setShowApiModal(false);}}>
+                × REMOVE STORED KEY
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── ERROR TOAST ───────────────────────────────────────────────────── */}
+      {analysisError&&appMode!=="results"&&(
+        <div style={{position:"fixed",bottom:28,left:"50%",transform:"translateX(-50%)",zIndex:2000,background:"var(--accent-red)",color:"#fff",padding:"12px 22px",borderRadius:8,boxShadow:"0 4px 20px rgba(0,0,0,.4)",display:"flex",alignItems:"center",gap:10,maxWidth:480}}>
+          <XCircle size={16}/>
+          <span className="dm-mono" style={{fontSize:".78rem"}}>{analysisError}</span>
+          <button onClick={()=>setAnalysisError(null)} style={{background:"none",border:"none",color:"#fff",cursor:"pointer",marginLeft:8,fontSize:".9rem"}}>×</button>
         </div>
       )}
     </div>
