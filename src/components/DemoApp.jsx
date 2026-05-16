@@ -224,6 +224,43 @@ const getIntelligentAnalysis = async (base64, manualFruit = null) => {
   };
 };
 
+// ─── IMAGE ENHANCEMENT ────────────────────────────────────────────────────
+const enhanceImageBase64 = (base64) => new Promise((resolve) => {
+  const img = new Image();
+  img.onload = () => {
+    const MAX = 1280;
+    let w = img.width, h = img.height;
+    if (w > MAX || h > MAX) {
+      if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+      else { w = Math.round(w * MAX / h); h = MAX; }
+    }
+    const c = document.createElement("canvas");
+    c.width = w; c.height = h;
+    const ctx = c.getContext("2d");
+    ctx.drawImage(img, 0, 0, w, h);
+
+    const id = ctx.getImageData(0, 0, w, h);
+    const d = id.data;
+
+    // Measure average luminance
+    let lum = 0;
+    for (let i = 0; i < d.length; i += 16) lum += d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114;
+    lum /= (d.length / 16);
+
+    // Adjust brightness + contrast based on scene luminance
+    const boost  = lum < 80 ? 30 : lum < 110 ? 15 : lum < 140 ? 5 : 0;
+    const factor = 1.12;
+    for (let i = 0; i < d.length; i += 4) {
+      d[i]   = Math.min(255, Math.max(0, (d[i]   - 128) * factor + 128 + boost));
+      d[i+1] = Math.min(255, Math.max(0, (d[i+1] - 128) * factor + 128 + boost));
+      d[i+2] = Math.min(255, Math.max(0, (d[i+2] - 128) * factor + 128 + boost));
+    }
+    ctx.putImageData(id, 0, 0);
+    resolve(c.toDataURL("image/jpeg", 0.96).split(",")[1]);
+  };
+  img.src = `data:image/jpeg;base64,${base64}`;
+});
+
 // ─── CLAUDE VISION API (primary detector) ─────────────────────────────────
 const analyzeWithAI = async (base64, apiKey) => {
   const resp = await fetch("https://api.anthropic.com/v1/messages", {
@@ -236,39 +273,70 @@ const analyzeWithAI = async (base64, apiKey) => {
     },
     body: JSON.stringify({
       model:"claude-sonnet-4-6",
-      max_tokens:1500,
+      max_tokens:2000,
       messages:[{
         role:"user",
         content:[
           {type:"image",source:{type:"base64",media_type:"image/jpeg",data:base64}},
-          {type:"text",text:`You are an expert fruit quality sensor AI for a SmartFruit agricultural device.
+          {type:"text",text:`You are a precision agricultural AI with expert-level fruit identification and quality assessment capabilities. Analyse this image with maximum accuracy.
 
-CAREFULLY analyse this image:
+━━━ IDENTIFICATION GUIDE ━━━
+Match the exact fruit you see against these visual signatures:
 
-STEP 1 — FIND THE FRUIT:
-Look anywhere in the image (held in hand, on a surface, shown on a screen, in a photo).
-Common fruits: Apple, Banana, Orange, Mango, Grapes, Strawberry, Lemon, Lime, Pear, Peach, Watermelon, Pineapple, Kiwi, Pomegranate, Papaya, Guava, Cherry, Jackfruit, Blueberry, Raspberry.
+• Banana      → elongated curved fruit; green=unripe, yellow=ripe, brown patches=overripe, mostly black=spoiled
+• Apple       → round fruit with stem; red/green/yellow skin; bruised dark soft areas=overripe
+• Orange      → round citrus with textured orange peel; pale/green tinge=unripe
+• Mango       → large oval stone fruit; green/yellow/red-orange blend; wrinkled=overripe
+• Grapes      → small round berries in tight clusters; green/red/purple; shrivelled=overripe
+• Strawberry  → red heart-shaped berry with tiny seeds (achenes) on surface; white/green tip=unripe
+• Watermelon  → large oval melon; dark green striped rind; thumping hollow inside
+• Pineapple   → oval with rough scaly golden-brown exterior and green crown leaves
+• Lemon       → small oval bright yellow citrus with slightly bumpy skin
+• Lime        → small round bright green citrus
+• Kiwi        → small oval with brown fuzzy exterior; inside is vibrant green with black seeds
+• Papaya      → large oval with smooth yellow-orange skin; green=unripe
+• Pear        → teardrop/pyriform shape; green or yellow-green skin with rough texture near base
+• Peach       → round with velvety soft skin; orange-pink gradient with a crease line
+• Pomegranate → round with thick leathery deep-red or pink skin; crown at top
+• Guava       → small oval or round; pale green to yellow skin; pinkish flesh visible if cut
+• Cherry      → small round deep red or dark purple fruit; long thin stem
+• Jackfruit   → very large spiky green/yellow exterior
+• Blueberry   → tiny round dark blue/purple berry; dusty bloom on skin
+• Raspberry   → small red cluster of drupelets forming cone shape
 
-STEP 2 — ASSESS FRESHNESS & STALENESS:
-Fresh indicators: vivid natural colour, firm shape, no dark spots, smooth surface
-Stale indicators: brown/black spots, wrinkled skin, mold patches, oozing, fermentation signs, collapsed shape
+━━━ RIPENESS SCALE ━━━
+Unripe  → mostly green, hard, underdeveloped colour, no aroma cues visible
+Ripe    → vivid natural colour, firm but yielding shape, no blemishes
+Overripe→ soft spots, brown/dark patches >20% surface, wrinkled or shrivelled skin, dull colour
+Spoiled → visible mould (white/grey/green fuzz), >50% dark discolouration, collapsed structure, oozing liquid
 
-STEP 3 — Return ONLY valid JSON (no markdown, no backticks, no extra text):
+━━━ SCORING GUIDE ━━━
+freshness_score: 92-100=perfect peak quality | 75-91=good, consume soon | 50-74=fair, use immediately | 25-49=poor, overripe | 0-24=unsafe, discard
+confidence: your certainty in the fruit_type identification (0-100)
+
+━━━ CRITICAL RULES ━━━
+1. The fruit may be real OR shown on a phone/screen/photo — identify it either way
+2. Scan the ENTIRE image; report the most prominent fruit
+3. Be specific: name exact colours, textures, blemishes you actually observe
+4. Never default to a generic fruit — only report what you genuinely see
+5. If no fruit is clearly visible, return detected: false
+
+Return ONLY this JSON — no markdown, no backticks, no commentary:
 {
-  "fruit_type": "exact fruit name, e.g. Banana",
+  "fruit_type": "exact fruit name e.g. Banana",
   "detected": true,
   "ripeness_level": "Unripe OR Ripe OR Overripe OR Spoiled",
   "is_stale": false,
-  "staleness_reason": "One sentence describing the key freshness or staleness visual evidence observed",
+  "staleness_reason": "One precise sentence citing the specific visual evidence for freshness or spoilage",
   "freshness_score": 0-100,
   "confidence": 0-100,
   "shelf_life_days": 0-14,
-  "shelf_life_label": "e.g. 3-5 days OR Consume today OR Do not consume",
-  "visual_observations": ["specific visual detail 1", "specific visual detail 2", "specific visual detail 3"],
+  "shelf_life_label": "e.g. 5-7 days OR Consume today OR Do not consume",
+  "visual_observations": ["precise observation 1 with colour/texture detail", "precise observation 2", "precise observation 3"],
   "color_status": "Excellent OR Normal OR Discolored OR Browning OR Darkened",
   "surface_status": "Smooth OR Slight wrinkle OR Mold present OR Severely damaged",
-  "recommendation": "One clear safety and consumption recommendation sentence",
-  "grad_cam_focus": "Which image region reveals the key quality indicator",
+  "recommendation": "One clear actionable safety and consumption recommendation",
+  "grad_cam_focus": "The specific region that most strongly indicates quality, e.g. stem area shows browning",
   "ethylene_prediction": "Low OR Medium OR High OR Very High",
   "estimated_weight_g": 100-500,
   "fruit_category": "Citrus OR Tropical OR Berry OR Stone OR Pome OR Other"
@@ -399,12 +467,24 @@ export default function DemoApp() {
   },[stream]);
 
   const startWebcam = async ()=>{
+    setAnalysisError(null);
     try{
-      setAnalysisError(null);
-      const s=await navigator.mediaDevices.getUserMedia({video:true});
+      // Request back camera at high resolution for best fruit clarity
+      const s=await navigator.mediaDevices.getUserMedia({
+        video:{
+          facingMode:{ideal:"environment"},
+          width:{ideal:1920,min:640},
+          height:{ideal:1080,min:480},
+        }
+      });
       setStream(s);
-    }catch(err){
-      setAnalysisError(`Camera Error: ${err.message}. Please allow camera access.`);
+    }catch{
+      try{
+        const s=await navigator.mediaDevices.getUserMedia({video:true});
+        setStream(s);
+      }catch(err2){
+        setAnalysisError(`Camera Error: ${err2.message}. Please allow camera access and refresh.`);
+      }
     }
   };
 
@@ -416,9 +496,10 @@ export default function DemoApp() {
   const captureFrame=()=>{
     if(!videoRef.current)return;
     const c=document.createElement("canvas");
-    c.width=videoRef.current.videoWidth; c.height=videoRef.current.videoHeight;
+    c.width=videoRef.current.videoWidth;
+    c.height=videoRef.current.videoHeight;
     c.getContext("2d").drawImage(videoRef.current,0,0);
-    const dataUrl=c.toDataURL("image/jpeg",0.92);
+    const dataUrl=c.toDataURL("image/jpeg",0.97); // maximum quality
     setImagePreview(dataUrl);
     setCapturedImage(dataUrl.split(",")[1]);
   };
@@ -427,11 +508,15 @@ export default function DemoApp() {
     const file=e.target.files[0]; if(!file)return;
     const img=new Image(), url=URL.createObjectURL(file);
     img.onload=()=>{
-      const max=1024; let {width,height}=img;
-      if(width>max||height>max){if(width>height){height=Math.round(height*max/width);width=max;}else{width=Math.round(width*max/height);height=max;}}
+      const max=1280;
+      let {width,height}=img;
+      if(width>max||height>max){
+        if(width>height){height=Math.round(height*max/width);width=max;}
+        else{width=Math.round(width*max/height);height=max;}
+      }
       const c=document.createElement("canvas"); c.width=width; c.height=height;
       c.getContext("2d").drawImage(img,0,0,width,height);
-      const dataUrl=c.toDataURL("image/jpeg",0.92);
+      const dataUrl=c.toDataURL("image/jpeg",0.96); // high quality
       setCapturedImage(dataUrl.split(",")[1]);
       setImagePreview(dataUrl);
       URL.revokeObjectURL(url);
@@ -474,13 +559,15 @@ export default function DemoApp() {
         result=await getIntelligentAnalysis(capturedImage,manualFruit);
       } else if(savedKey){
         try{
-          setCurrentStep("🤖  Calling Claude Vision API...");
-          result=await analyzeWithAI(capturedImage,savedKey);
+          setCurrentStep("🔬  Enhancing image quality...");
+          const enhanced=await enhanceImageBase64(capturedImage);
+          setCurrentStep("🤖  Claude Vision AI analysing...");
+          result=await analyzeWithAI(enhanced,savedKey);
         }catch(apiErr){
-          console.warn("Claude API failed, using local model:",apiErr.message);
-          setCurrentStep("🔄  Local analysis fallback...");
+          console.warn("Claude API failed, using local fallback:",apiErr.message);
+          setCurrentStep("🔄  Local colour analysis fallback...");
           result=await runLocalAI(capturedImage);
-          setAnalysisError(`Note: API unavailable (${apiErr.message.substring(0,80)}). Using local model — accuracy may vary.`);
+          setAnalysisError(`Note: Claude API unavailable — ${apiErr.message.substring(0,80)}. Using local colour model; accuracy may vary.`);
         }
       } else {
         result=await runLocalAI(capturedImage);
@@ -637,6 +724,23 @@ export default function DemoApp() {
         {/* ── CAMERA ────────────────────────────────────────────────────── */}
         {appMode==="camera"&&(
           <div style={{animation:"fade-in-up .5s ease"}}>
+
+            {/* API key banner — shown only when no key is stored */}
+            {!apiKey&&(
+              <div style={{marginBottom:16,padding:"12px 18px",background:"rgba(255,183,0,.1)",border:"1px solid var(--accent-amber)",borderRadius:10,display:"flex",alignItems:"center",justifyContent:"space-between",gap:12}}>
+                <div style={{display:"flex",alignItems:"center",gap:10}}>
+                  <AlertTriangle size={16} color="var(--accent-amber)"/>
+                  <span className="dm-mono" style={{fontSize:".74rem",color:"var(--accent-amber)"}}>
+                    No Claude API key — running local colour model only. Add a key for full AI accuracy.
+                  </span>
+                </div>
+                <button className="btn-demo btn-outline-demo" style={{padding:"5px 12px",fontSize:".65rem",borderColor:"var(--accent-amber)",color:"var(--accent-amber)",flexShrink:0}}
+                  onClick={()=>{setTempApiKey(apiKey);setShowApiModal(true);}}>
+                  <Key size={12}/> ADD KEY
+                </button>
+              </div>
+            )}
+
             {isJetsonConn&&(
               <div className="glass-card" style={{marginBottom:20,padding:"10px 20px",borderLeft:"4px solid var(--accent-amber)",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
                 <div style={{display:"flex",alignItems:"center",gap:12}}>
@@ -671,9 +775,17 @@ export default function DemoApp() {
                   {imagePreview&&<img src={imagePreview} style={{width:"100%"}} alt="captured"/>}
                   {!imagePreview&&(
                     <div style={{position:"absolute",inset:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",pointerEvents:"none"}}>
-                      <div style={{width:190,height:190,border:"2px solid rgba(57,255,20,.5)",borderRadius:20,boxShadow:"0 0 20px rgba(57,255,20,.2)"}}/>
-                      <div className="orbitron" style={{marginTop:15,fontSize:".68rem",color:"var(--accent-green)",background:"rgba(5,10,6,.85)",padding:"4px 12px",borderRadius:4,border:"1px solid var(--accent-green)"}}>
-                        ALIGN FRUIT WITHIN TARGET ZONE
+                      {/* Corner brackets */}
+                      <div style={{position:"relative",width:200,height:200}}>
+                        <div style={{position:"absolute",top:0,left:0,width:28,height:28,borderTop:"3px solid var(--accent-green)",borderLeft:"3px solid var(--accent-green)",borderRadius:"4px 0 0 0"}}/>
+                        <div style={{position:"absolute",top:0,right:0,width:28,height:28,borderTop:"3px solid var(--accent-green)",borderRight:"3px solid var(--accent-green)",borderRadius:"0 4px 0 0"}}/>
+                        <div style={{position:"absolute",bottom:0,left:0,width:28,height:28,borderBottom:"3px solid var(--accent-green)",borderLeft:"3px solid var(--accent-green)",borderRadius:"0 0 0 4px"}}/>
+                        <div style={{position:"absolute",bottom:0,right:0,width:28,height:28,borderBottom:"3px solid var(--accent-green)",borderRight:"3px solid var(--accent-green)",borderRadius:"0 0 4px 0"}}/>
+                        {/* Centre dot */}
+                        <div style={{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",width:6,height:6,borderRadius:"50%",background:"var(--accent-green)",boxShadow:"0 0 8px var(--accent-green)"}}/>
+                      </div>
+                      <div className="orbitron" style={{marginTop:14,fontSize:".65rem",color:"var(--accent-green)",background:"rgba(5,10,6,.88)",padding:"5px 14px",borderRadius:4,border:"1px solid var(--accent-green)",textAlign:"center",lineHeight:1.6}}>
+                        CENTRE FRUIT · GOOD LIGHTING · HOLD STEADY
                       </div>
                     </div>
                   )}
