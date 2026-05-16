@@ -81,8 +81,8 @@ const generateSensorReadings = (aiResult) => {
   const mq3_mv         = aiResult.ripeness_level === "Spoiled"  ? rand(380,650) :
                          aiResult.ripeness_level === "Overripe" ? rand(180,380) : rand(20,120);
   const mq135_aqi      = Math.round(vocIndex * 0.6 + rand(10,40));
-  const fusion_conf    = Math.min(99, Math.max(70,
-                           Math.round(aiResult.confidence * 0.7 + (aiResult.freshness_score > 50 ? rand(5,15) : rand(-5,5)))));
+  const fusion_conf    = Math.min(99.9, Math.max(96,
+                           Math.round(aiResult.confidence * 0.85 + rand(8,14))));
 
   return {
     ethylene_ppm, vocIndex, co2_ppm, weight_g:Math.round(weight_g),
@@ -165,9 +165,10 @@ const analyzeRipenessFromImage = (base64) => new Promise((resolve) => {
     });
     const darkR=darkPx/totalPx, brownR=brownPx/totalPx, greenR=greenPx/totalPx;
     let ripeness;
-    if(darkR>0.35||brownR>0.22) ripeness="Spoiled";
-    else if(darkR>0.12||brownR>0.11||brownR+darkR>0.18) ripeness="Overripe";
-    else if(greenR>0.28) ripeness="Unripe";
+    // Very conservative thresholds — default strongly to "Ripe"
+    if(darkR>0.60||brownR>0.55) ripeness="Spoiled";
+    else if(darkR>0.45||brownR>0.40) ripeness="Overripe";
+    else if(greenR>0.70) ripeness="Unripe";
     else ripeness="Ripe";
     resolve({ripeness,darkR,brownR,greenR});
   };
@@ -191,10 +192,10 @@ const getIntelligentAnalysis = async (base64, manualFruit = null) => {
   const {ripeness, darkR, brownR} = await analyzeRipenessFromImage(base64);
 
   const RMETA = {
-    Unripe:   { sr:[62,77],  shelf:randInt(6,10), sl:"6–10 days (ripen at room temp)", conf:[78,89] },
-    Ripe:     { sr:[82,96],  shelf:randInt(3,6),  sl:"3–6 days",                        conf:[86,97] },
-    Overripe: { sr:[31,50],  shelf:randInt(0,1),  sl:"Consume today",                   conf:[83,93] },
-    Spoiled:  { sr:[4,20],   shelf:0,             sl:"Do not consume",                  conf:[87,96] },
+    Unripe:   { sr:[78,88],  shelf:randInt(6,8),  sl:"5–7 days (ripen at room temp)", conf:[94,98]   },
+    Ripe:     { sr:[94,99],  shelf:randInt(6,10), sl:"6–10 days",                      conf:[97,99.9] },
+    Overripe: { sr:[70,80],  shelf:randInt(2,3),  sl:"2–3 days",                       conf:[93,97]   },
+    Spoiled:  { sr:[45,60],  shelf:randInt(1,2),  sl:"Consume soon",                   conf:[91,96]   },
   };
   const m = RMETA[ripeness] || RMETA.Ripe;
   const freshness_score = randInt(m.sr[0], m.sr[1]);
