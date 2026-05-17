@@ -5,8 +5,7 @@ import {
 } from "recharts";
 import {
   Cpu, Camera, Smartphone, Monitor, Activity, RefreshCw, CheckCircle,
-  XCircle, Leaf, Scale, Wind, Eye, History, TrendingUp,
-  Thermometer, FlaskConical
+  XCircle, Leaf, Scale, Wind, Eye, History, TrendingUp, FlaskConical
 } from "lucide-react";
 
 // ─── STYLES ────────────────────────────────────────────────────────────────
