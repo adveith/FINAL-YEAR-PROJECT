@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Zap, Brain } from 'lucide-react';
+import { Zap } from 'lucide-react';
 
 const deviceTextCycle = ['Analysing...', 'Fruit: Apple ✓', 'Ripe ✓', 'Shelf Life: 3 days', 'Score: 87/100', 'Uploading...'];
 

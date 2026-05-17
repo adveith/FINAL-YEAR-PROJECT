@@ -20,6 +20,20 @@ const timelineData = [
   { task: 'Documentation & Report', start: 106, duration: 20, phase: 'Integration', color: '#ef4444' },
 ];
 
+const CustomTooltip = ({ active, payload }) => {
+  if (active && payload && payload.length) {
+    const data = payload[0].payload;
+    return (
+      <div style={{ background: '#0c1a0e', border: `1px solid ${data.color}`, padding: '8px 12px', borderRadius: 4 }}>
+        <div style={{ fontFamily: 'Orbitron,monospace', fontSize: '0.75rem', color: data.color, marginBottom: 4 }}>{data.phase}</div>
+        <div style={{ fontFamily: 'DM Mono,monospace', fontSize: '0.8rem', color: '#fff' }}>{data.task}</div>
+        <div style={{ fontFamily: 'DM Mono,monospace', fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: 4 }}>Duration: {data.duration} days</div>
+      </div>
+    );
+  }
+  return null;
+};
+
 export default function Timeline() {
   const ref = useRef(null);
   const [visible, setVisible] = useState(false);
@@ -29,20 +43,6 @@ export default function Timeline() {
     if (ref.current) obs.observe(ref.current);
     return () => obs.disconnect();
   }, []);
-
-  const CustomTooltip = ({ active, payload }) => {
-    if (active && payload && payload.length) {
-      const data = payload[0].payload;
-      return (
-        <div style={{ background: '#0c1a0e', border: `1px solid ${data.color}`, padding: '8px 12px', borderRadius: 4 }}>
-          <div style={{ fontFamily: 'Orbitron,monospace', fontSize: '0.75rem', color: data.color, marginBottom: 4 }}>{data.phase}</div>
-          <div style={{ fontFamily: 'DM Mono,monospace', fontSize: '0.8rem', color: '#fff' }}>{data.task}</div>
-          <div style={{ fontFamily: 'DM Mono,monospace', fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: 4 }}>Duration: {data.duration} days</div>
-        </div>
-      );
-    }
-    return null;
-  };
 
   return (
     <section id="timeline" ref={ref} style={{ padding: '80px 24px', background: 'rgba(12,26,14,0.4)' }}>

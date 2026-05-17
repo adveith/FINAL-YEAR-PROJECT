@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, Loader2, RefreshCw, Info, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Send, AlertTriangle, CheckCircle2 } from 'lucide-react';
 
 const FRUIT_DATABASE = {
   apple: {
@@ -261,7 +261,7 @@ export default function Chatbot() {
 
           <div style={{ flex: 1, overflowY: 'auto', padding: '24px', display: 'flex', flexDirection: 'column', gap: 24 }}>
             {messages.map((m) => (
-              <div key={m.id || Math.random()} style={{ alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start', maxWidth: '90%', display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div key={m.id} style={{ alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start', maxWidth: '90%', display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <div style={{ 
                   padding: '14px 18px', borderRadius: 12, fontFamily: 'DM Mono,monospace', fontSize: '0.85rem', lineHeight: 1.6,
                   background: m.role === 'user' ? 'var(--accent-green)' : 'var(--bg-panel)',
