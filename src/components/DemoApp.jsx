@@ -306,21 +306,21 @@ const analyzeColorHSV = (base64) => new Promise((resolve) => {
     canvas.width = 200; canvas.height = 200;
     const ctx = canvas.getContext("2d");
     ctx.drawImage(img, 0, 0, 200, 200);
-    // Centre crop weighted 2×, four quadrants 1× each
+    // Centre 3×, inner-ring 1.5×, four corner quadrants 1× — fruit-focused
     const regions = [
-      {data:ctx.getImageData(60,60,80,80).data, w:2},
-      {data:ctx.getImageData(20,20,70,70).data, w:1},
-      {data:ctx.getImageData(110,20,70,70).data,w:1},
-      {data:ctx.getImageData(20,110,70,70).data,w:1},
-      {data:ctx.getImageData(110,110,70,70).data,w:1},
+      {data:ctx.getImageData(65,65,70,70).data, w:3},   // tight centre
+      {data:ctx.getImageData(50,50,100,100).data,w:1.5},// mid ring
+      {data:ctx.getImageData(15,15,70,70).data, w:1},
+      {data:ctx.getImageData(115,15,70,70).data,w:1},
+      {data:ctx.getImageData(15,115,70,70).data,w:1},
+      {data:ctx.getImageData(115,115,70,70).data,w:1},
     ];
     let sinH=0,cosH=0,sumS=0,sumV=0,n=0;
     regions.forEach(({data,w})=>{
       for(let i=0;i<data.length;i+=4){
         const [h,s,v]=rgbToHsv(data[i],data[i+1],data[i+2]);
-        if(v<12||(s<12&&v>82)) continue; // skip shadow + neutral background
-        // Weight each pixel by its saturation — vivid fruit pixels dominate
-        const pw=w*(0.4+s/160);
+        if(v<12||(s<20&&v>75)) continue; // skip shadow + neutral/white background
+        const pw=w*(0.3+s/120);          // vivid pixels dominate
         const hw=h*Math.PI/180;
         sinH+=Math.sin(hw)*pw; cosH+=Math.cos(hw)*pw;
         sumS+=s*pw; sumV+=v*pw; n+=pw;
@@ -346,38 +346,40 @@ const analyzeColorHSV = (base64) => new Promise((resolve) => {
 // ─── RIPENESS SCORE PROFILES ─────────────────────────────────────────────────
 // Expected normalised pixel-ratio vector per fruit per stage.
 // Indices: [green, yellow, orange, red, purple, brownDark]
-// Built from real fruit colour data — the model scores ALL 4 stages and picks
-// the closest match (L1 distance). This handles intermediate states naturally.
+//
+// Key design choice: brownDark is NOT a catch-all — only genuinely dark/brown
+// pixels count. Ambiguous pixels (teal, pink, etc.) are skipped entirely so
+// the vector stays clean and the L1 distance is meaningful.
 const RIPENESS_SCORE_PROFILES = {
   Banana:{
-    Unripe:   [0.58,0.18,0.04,0.02,0.01,0.06],
-    Ripe:     [0.04,0.70,0.14,0.02,0.01,0.05],
-    Overripe: [0.04,0.30,0.18,0.10,0.01,0.28],
-    Spoiled:  [0.02,0.08,0.08,0.10,0.01,0.60],
+    Unripe:   [0.84, 0.06, 0.01, 0.00, 0.00, 0.05],  // solid green
+    Ripe:     [0.02, 0.87, 0.06, 0.01, 0.00, 0.04],  // solid yellow
+    Overripe: [0.02, 0.40, 0.04, 0.00, 0.00, 0.50],  // yellow + heavy brown
+    Spoiled:  [0.01, 0.06, 0.01, 0.01, 0.00, 0.88],  // almost all dark
   },
   Apple:{
-    Unripe:   [0.56,0.10,0.04,0.14,0.01,0.06],
-    Ripe:     [0.04,0.04,0.08,0.65,0.02,0.08],
-    Overripe: [0.04,0.04,0.18,0.40,0.02,0.24],
-    Spoiled:  [0.02,0.04,0.12,0.18,0.01,0.55],
+    Unripe:   [0.80, 0.02, 0.01, 0.10, 0.00, 0.04],  // green with blush
+    Ripe:     [0.04, 0.01, 0.04, 0.80, 0.00, 0.06],  // vivid red
+    Overripe: [0.02, 0.01, 0.06, 0.52, 0.00, 0.32],  // red + brown patches
+    Spoiled:  [0.01, 0.00, 0.02, 0.10, 0.00, 0.80],  // dark/mouldy
   },
   Mango:{
-    Unripe:   [0.56,0.12,0.10,0.05,0.01,0.06],
-    Ripe:     [0.04,0.36,0.44,0.06,0.01,0.05],
-    Overripe: [0.04,0.20,0.28,0.10,0.01,0.28],
-    Spoiled:  [0.02,0.08,0.12,0.14,0.01,0.55],
+    Unripe:   [0.80, 0.06, 0.06, 0.02, 0.00, 0.04],  // green
+    Ripe:     [0.02, 0.32, 0.55, 0.04, 0.00, 0.04],  // yellow-orange
+    Overripe: [0.01, 0.16, 0.28, 0.06, 0.00, 0.42],  // dull orange + brown
+    Spoiled:  [0.00, 0.03, 0.06, 0.06, 0.00, 0.78],  // dark collapse
   },
   Grapes:{
-    Unripe:   [0.56,0.08,0.04,0.04,0.14,0.06],
-    Ripe:     [0.04,0.04,0.04,0.14,0.60,0.10],
-    Overripe: [0.02,0.04,0.04,0.12,0.38,0.34],
-    Spoiled:  [0.02,0.04,0.06,0.08,0.12,0.64],
+    Unripe:   [0.78, 0.02, 0.01, 0.02, 0.08, 0.04],  // green berries
+    Ripe:     [0.02, 0.01, 0.01, 0.04, 0.83, 0.08],  // deep purple
+    Overripe: [0.01, 0.01, 0.01, 0.03, 0.46, 0.44],  // shrivelled + brown
+    Spoiled:  [0.00, 0.00, 0.01, 0.02, 0.10, 0.82],  // mould/collapse
   },
   Orange:{
-    Unripe:   [0.56,0.08,0.20,0.05,0.01,0.06],
-    Ripe:     [0.03,0.08,0.74,0.05,0.01,0.05],
-    Overripe: [0.03,0.08,0.50,0.10,0.01,0.24],
-    Spoiled:  [0.02,0.04,0.20,0.14,0.01,0.55],
+    Unripe:   [0.72, 0.02, 0.15, 0.02, 0.00, 0.05],  // mostly green, some orange
+    Ripe:     [0.02, 0.03, 0.88, 0.02, 0.00, 0.04],  // vivid orange
+    Overripe: [0.01, 0.03, 0.58, 0.07, 0.00, 0.26],  // dull orange + brown
+    Spoiled:  [0.00, 0.01, 0.10, 0.06, 0.00, 0.78],  // mould/dark
   },
 };
 
@@ -387,9 +389,11 @@ const l1Similarity = (a, r) => {
 };
 
 // ─── FRUIT-SPECIFIC RIPENESS ENGINE ──────────────────────────────────────────
-// Computes 6 colour-bucket ratios from the image, then scores each ripeness
-// stage via L1 similarity to RIPENESS_SCORE_PROFILES. Texture variance acts
-// as a secondary modifier — high variance boosts Overripe/Spoiled probability.
+// Fixes the "always Spoiled" bug: brownDark is no longer a catch-all.
+// Only pixels that clearly match a known fruit colour OR are genuinely dark/
+// brown are counted. Everything else (teal, pink, cyan, neutral) is skipped.
+// This means `total` = classified fruit pixels only, so background doesn't
+// inflate the brownDark ratio and force Spoiled on every image.
 const analyzeFruitRipeness = (base64, fruitName) => new Promise((resolve) => {
   const img = new Image();
   img.onload = () => {
@@ -397,44 +401,49 @@ const analyzeFruitRipeness = (base64, fruitName) => new Promise((resolve) => {
     c.width = 200; c.height = 200;
     const ctx = c.getContext("2d");
     ctx.drawImage(img, 0, 0, 200, 200);
-    const data = ctx.getImageData(8,8,184,184).data;
+    // Focus on the inner 160×160 — avoids edge noise and background bleed
+    const data = ctx.getImageData(20,20,160,160).data;
 
     let total=0, green=0, yellow=0, orange=0, red=0, purple=0, brownDark=0;
-    let lumSum=0, lumSqSum=0, pxCount=0;
+    let lumSum=0, lumSqSum=0;
 
     for(let i=0;i<data.length;i+=4){
       const [h,s,v]=rgbToHsv(data[i],data[i+1],data[i+2]);
+      // Skip near-black and low-saturation neutrals (white/gray/light background)
+      if(v<10||(s<18&&v>72)) continue;
+
       const lum=(data[i]*0.299+data[i+1]*0.587+data[i+2]*0.114);
-      if(v<8||(s<10&&v>85)) continue; // skip near-black + neutral background
+
+      // Classify into specific buckets only — no catch-all
+      let hit=true;
+      if     (h>=75&&h<=155&&s>=22&&v>=25)              green++;    // unripe green
+      else if(h>=42&&h<75&&s>=35&&v>=52)                yellow++;   // banana/mango yellow
+      else if(h>=15&&h<42&&s>=48&&v>=48)                orange++;   // citrus/mango orange
+      else if((h<15||h>=335)&&s>=38&&v>=28)             red++;      // apple red
+      else if(h>=240&&h<=315&&s>=16&&v>=16)             purple++;   // grape purple
+      else if(v<42||(h>=10&&h<=65&&s>=8&&s<=50&&v<70)) brownDark++;// dark or brownish
+      else hit=false; // skip ambiguous pixels (teal, magenta, etc.)
+
+      if(!hit) continue;
       total++;
-      // Colour bucket classification
-      if     (h>=82&&h<=165&&s>=16)               green++;
-      else if(h>=46&&h<82&&s>=36&&v>=50)           yellow++;
-      else if(h>=18&&h<46&&s>=50&&v>=50)           orange++;
-      else if((h<=22||h>=336)&&s>=40&&v>=30)       red++;
-      else if(h>=238&&h<=314&&s>=16&&v>=16)        purple++;
-      else                                          brownDark++;
-      // Luminance moments for texture variance
-      lumSum+=lum; lumSqSum+=lum*lum; pxCount++;
+      lumSum+=lum; lumSqSum+=lum*lum;
     }
 
-    if(total===0){resolve("Ripe");return;}
+    if(total<80){resolve("Ripe");return;} // too few classified pixels → safe default
 
-    // Normalised colour vector
-    const actual=[green,yellow,orange,red,purple,brownDark].map(v=>v/total);
+    const actual=[green,yellow,orange,red,purple,brownDark].map(x=>x/total);
 
-    // Texture variance (high = patchy/spotted surface = spoilage indicator)
-    const lumMean=lumSum/pxCount;
-    const texVar=Math.sqrt(lumSqSum/pxCount - lumMean*lumMean)/255; // 0–1
+    // Texture variance over classified fruit pixels (patchy = overripe/spoiled)
+    const lumMean=lumSum/total;
+    const texVar=Math.sqrt(Math.max(0, lumSqSum/total - lumMean*lumMean))/255;
 
-    // Score all 4 stages
     const profiles=RIPENESS_SCORE_PROFILES[fruitName]||RIPENESS_SCORE_PROFILES.Banana;
     const STAGES=["Unripe","Ripe","Overripe","Spoiled"];
     const scored=STAGES.map(s=>({s, score:l1Similarity(actual,profiles[s])}));
 
-    // Texture modifier: high variance nudges toward Overripe/Spoiled
-    if(texVar>0.22){ scored[2].score+=0.08; scored[3].score+=0.06; }
-    if(texVar>0.35){ scored[2].score+=0.06; scored[3].score+=0.10; }
+    // Texture modifier: patchy surface nudges toward Overripe/Spoiled
+    if(texVar>0.20){ scored[2].score+=0.07; scored[3].score+=0.05; }
+    if(texVar>0.32){ scored[2].score+=0.05; scored[3].score+=0.09; }
 
     scored.sort((a,b)=>b.score-a.score);
     resolve(scored[0].s);
@@ -908,12 +917,22 @@ export default function DemoApp() {
                       <div className="scan-line" style={{top:0}}/>
                     </div>
                   ):(
-                    <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:20}}>
+                    <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:16}}>
                       <Camera size={64} color="var(--text-muted)"/>
-                      <button className="btn-demo btn-primary-demo" onClick={()=>fileInputRef.current.click()}>
-                        <Camera size={18}/> OPEN CAMERA / UPLOAD IMAGE
-                      </button>
-                      <input type="file" accept="image/*" capture="environment" hidden ref={fileInputRef} onChange={handleFileSelect}/>
+                      {/* label→input is the only pattern that works on iOS Safari */}
+                      <label htmlFor="sf-cam-input" className="btn-demo btn-primary-demo" style={{cursor:"pointer",display:"flex",alignItems:"center",gap:10}}>
+                        <Camera size={18}/> TAKE PHOTO
+                      </label>
+                      <label htmlFor="sf-gallery-input" className="btn-demo btn-outline-demo" style={{cursor:"pointer",display:"flex",alignItems:"center",gap:10,fontSize:".78rem"}}>
+                        UPLOAD FROM GALLERY
+                      </label>
+                      {/* capture="environment" opens rear camera directly on mobile */}
+                      <input id="sf-cam-input" type="file" accept="image/*" capture="environment"
+                        ref={fileInputRef} onChange={handleFileSelect}
+                        style={{position:"absolute",opacity:0,width:"1px",height:"1px",overflow:"hidden"}}/>
+                      <input id="sf-gallery-input" type="file" accept="image/*"
+                        onChange={handleFileSelect}
+                        style={{position:"absolute",opacity:0,width:"1px",height:"1px",overflow:"hidden"}}/>
                     </div>
                   )}
                 </div>
