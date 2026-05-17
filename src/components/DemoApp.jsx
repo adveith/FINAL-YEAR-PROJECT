@@ -109,33 +109,190 @@ const generateSensorReadings = (aiResult) => {
   };
 };
 
-// ─── FRUIT PROFILES ──────────────────────────────────────────────────────────
-// hsv = [hue 0-360, sat 0-100, val 0-100] centroid for a ripe specimen
-// Hue-based matching is far more discriminative than RGB distance
+// ─── 5-FRUIT PROFILES ────────────────────────────────────────────────────────
+// Per-ripeness data: HSV centroid, freshness score range, shelf life, weight,
+// visual observations, recommendation, and staleness reason.
 const FRUIT_PROFILES = [
-  { name:"Apple",       cat:"Pome",    hsv:[8,72,65],   obs:["Red anthocyanin mapping confirmed","Firm skin density detected","Iron content profile — moderate"] },
-  { name:"Banana",      cat:"Tropical",hsv:[52,74,85],  obs:["Elongated curvature confirmed","Potassium-rich yellow pigment","Stem node geometry detected"] },
-  { name:"Orange",      cat:"Citrus",  hsv:[28,88,80],  obs:["Pebbled peel texture profile","Carotenoid-heavy orange spectrum","High Vitamin C fluorescence"] },
-  { name:"Mango",       cat:"Tropical",hsv:[42,80,82],  obs:["Golden-yellow flesh indicators","Oval structural symmetry","High sucrose density signature"] },
-  { name:"Lemon",       cat:"Citrus",  hsv:[58,80,88],  obs:["High acidity yellow spectrum","Tapered polar ends confirmed","Limonene volatile profile"] },
-  { name:"Grapes",      cat:"Berry",   hsv:[275,42,48], obs:["Clustered spheroid geometry","Resveratrol polyphenol signature","Skin hydration index high"] },
-  { name:"Strawberry",  cat:"Berry",   hsv:[6,85,72],   obs:["Bright anthocyanin-rich red","Achene seed pattern visible","High ellagic acid profile"] },
-  { name:"Watermelon",  cat:"Tropical",hsv:[115,52,52], obs:["Deep green rind texture","High lycopene density spectrum","91% water content signature"] },
-  { name:"Pineapple",   cat:"Tropical",hsv:[48,68,78],  obs:["Crown geometry detected","Bromelain enzyme profile confirmed","Yellow-green textured exterior"] },
-  { name:"Papaya",      cat:"Tropical",hsv:[32,78,78],  obs:["Carotenoid-rich orange flesh","Oval melon structure","Papain enzyme profile present"] },
-  { name:"Kiwi",        cat:"Tropical",hsv:[30,38,42],  obs:["Brown fuzzy exterior detected","Chlorophyll-dense interior","Actinidin enzyme signature"] },
-  { name:"Guava",       cat:"Tropical",hsv:[88,40,68],  obs:["Green outer skin texture","Very high Vitamin C density","Small seed cluster distribution"] },
-  { name:"Pomegranate", cat:"Berry",   hsv:[5,80,58],   obs:["Deep red polyphenol-rich skin","Punicalagin tannin signature","Multi-chamber seed geometry"] },
-  { name:"Pear",        cat:"Pome",    hsv:[78,42,72],  obs:["Pyriform curvature detected","Chlorogenic acid phenol profile","Green-yellow skin spectrum"] },
-  { name:"Peach",       cat:"Stone",   hsv:[32,72,82],  obs:["Fuzzy epicarp texture confirmed","Orange-pink colour blend","Endocarp stone mass inferred"] },
-  { name:"Jackfruit",   cat:"Tropical",hsv:[52,58,72],  obs:["Large bumpy exocarp husk","High starch tropical profile","Distinctive volatile ester signature"] },
+  {
+    name:"Banana", cat:"Tropical",
+    hsv:[52,74,85],           // ripe-state centroid used for type ID
+    mnKeys:["banana"],
+    ripeness:{
+      Unripe:{
+        hsv:[100,60,60], score:[75,85], shelf:[7,10], weight:[80,120],
+        sl:"7–10 days at room temperature",
+        obs:["Green chlorophyll-dominant skin — carotenoids not expressed","Firm starchy texture — not palatable","Starch-to-sugar conversion not yet initiated"],
+        rec:"Store at room temperature. Will ripen naturally in 3–5 days. Do not refrigerate — cold halts ripening permanently.",
+        stale:"Chlorophyll-dominant green pigment signature confirms pre-ripeness. Ethylene production not yet triggered.",
+      },
+      Ripe:{
+        hsv:[52,74,85], score:[92,99], shelf:[5,8], weight:[110,160],
+        sl:"5–8 days",
+        obs:["Vivid yellow pigment — peak carotenoid conversion","Elongated curvature and firm-yet-yielding texture","Maximum potassium (358 mg) and natural sugar content"],
+        rec:"Optimal for immediate consumption. Refrigerate to extend life by 2–3 days. Peel will darken in fridge but flesh stays fresh.",
+        stale:"Uniform yellow pigment with no browning — peak freshness confirmed. Safe to consume.",
+      },
+      Overripe:{
+        hsv:[40,55,60], score:[52,70], shelf:[1,3], weight:[105,155],
+        sl:"1–3 days — use immediately",
+        obs:["Brown patch distribution — post-peak ethylene surge","Soft pressure points at equatorial band","Elevated fermentation aroma indicators"],
+        rec:"Consume immediately or use in baking/smoothies. Do not store further — freeze if not using today.",
+        stale:"Brown pixel ratio indicates post-peak ethylene surge. Texture compromised but still safe for cooking use.",
+      },
+      Spoiled:{
+        hsv:[25,35,35], score:[18,42], shelf:[0,1], weight:[90,145],
+        sl:"Discard — do not consume",
+        obs:["Extensive dark/black discolouration across surface","Collapsed structure — liquid seeping through skin","Fungal contamination risk elevated"],
+        rec:"Discard immediately. Do not consume. The flesh may harbour mould even if the outer damage looks localised.",
+        stale:"Dark region ratio and collapsed skin structure confirm advanced spoilage. Unsafe — discard.",
+      },
+    },
+  },
+  {
+    name:"Apple", cat:"Pome",
+    hsv:[8,72,65],
+    mnKeys:["apple","granny","delicious","macintosh","bramley"],
+    ripeness:{
+      Unripe:{
+        hsv:[105,45,55], score:[76,86], shelf:[10,14], weight:[120,180],
+        sl:"10–14 days",
+        obs:["Green chlorophyll skin — anthocyanin not yet expressed","Hard dense flesh — high tannin content","Acid-to-sugar ratio elevated — sharp taste"],
+        rec:"Store at room temperature for 5–7 days to ripen. A paper bag with a ripe banana will accelerate ethylene exposure.",
+        stale:"Green chlorophyll signature dominant — tannin and acid levels still elevated. Not optimal for consumption.",
+      },
+      Ripe:{
+        hsv:[8,72,65], score:[92,99], shelf:[6,10], weight:[150,220],
+        sl:"6–10 days",
+        obs:["Vivid red anthocyanin mapping confirmed","Firm skin with natural wax bloom intact","Peak phenolic antioxidant profile — 72/100 antioxidant score"],
+        rec:"Consume fresh or store refrigerated. Keep away from ethylene-producing produce to prevent premature ripening of nearby fruits.",
+        stale:"Uniform vivid red colouration with intact wax bloom — optimal freshness confirmed. Safe to consume.",
+      },
+      Overripe:{
+        hsv:[15,52,48], score:[52,70], shelf:[2,4], weight:[140,210],
+        sl:"2–4 days — use promptly",
+        obs:["Dull skin lustre — wax layer degrading","Soft bruised zones detected at pressure points","Elevated CO₂ respiration rate predicted"],
+        rec:"Use immediately in cooking, juicing, or apple sauce. Avoid raw consumption for best experience. Store refrigerated.",
+        stale:"Dull skin lustre and brown soft zones indicate post-peak state. Safe for cooking use but not ideal raw.",
+      },
+      Spoiled:{
+        hsv:[20,30,32], score:[15,40], shelf:[0,1], weight:[120,200],
+        sl:"Discard — do not consume",
+        obs:["Brown rot pattern — Monilinia fungal risk","Surface mould spores likely present","Core breakdown may extend beyond visible surface"],
+        rec:"Discard immediately. Brown rot can penetrate deep into the core even when surface damage appears minor.",
+        stale:"Brown rot pattern and dark discolouration confirm spoilage. Mycotoxin risk — do not consume.",
+      },
+    },
+  },
+  {
+    name:"Mango", cat:"Tropical",
+    hsv:[42,80,82],
+    mnKeys:["mango"],
+    ripeness:{
+      Unripe:{
+        hsv:[100,55,55], score:[74,84], shelf:[5,8], weight:[200,350],
+        sl:"5–8 days at room temperature",
+        obs:["Green skin — carotenoid synthesis not yet initiated","Hard dense flesh — high starch content","Sourness profile confirms pre-ripeness"],
+        rec:"Store at room temperature. Placing in a paper bag traps ethylene and accelerates ripening in 2–4 days.",
+        stale:"Green chlorophyll dominant with no carotenoid flush — pre-ripeness confirmed. Do not refrigerate yet.",
+      },
+      Ripe:{
+        hsv:[42,80,82], score:[92,99], shelf:[4,7], weight:[250,400],
+        sl:"4–7 days",
+        obs:["Golden-yellow carotenoid flush — full ripeness","Oval symmetry confirmed — flesh should yield to gentle pressure","High sucrose density and β-carotene content peak"],
+        rec:"Refrigerate to extend shelf life. Consume within 5 days once cut. Excellent source of Vitamin C and A.",
+        stale:"Golden-yellow carotenoid flush with no browning — peak freshness confirmed. Safe and optimal to consume.",
+      },
+      Overripe:{
+        hsv:[30,62,65], score:[50,68], shelf:[1,3], weight:[230,380],
+        sl:"1–3 days — use immediately",
+        obs:["Skin wrinkling and localised dark patches","Excessive softness at stem end and body","Fermentation-linked ester compounds elevated"],
+        rec:"Use immediately in smoothies, lassi, or desserts. Do not store further — freeze pulp if not using today.",
+        stale:"Wrinkling and brown patch distribution indicate post-peak state. Suitable for cooking but not ideal fresh.",
+      },
+      Spoiled:{
+        hsv:[22,30,32], score:[15,40], shelf:[0,1], weight:[200,350],
+        sl:"Discard — do not consume",
+        obs:["Black/brown collapse zones on skin","Fungal contamination risk — Colletotrichum likely","Fermentation odour expected — ester overload"],
+        rec:"Discard immediately. Even if the inner flesh looks orange, bacterial growth near the skin may have spread.",
+        stale:"Black/brown collapse zones and structural failure confirm advanced spoilage. Unsafe — discard.",
+      },
+    },
+  },
+  {
+    name:"Grapes", cat:"Berry",
+    hsv:[275,42,48],
+    mnKeys:["grape","berry","cluster","vine fruit"],
+    ripeness:{
+      Unripe:{
+        hsv:[115,40,52], score:[72,82], shelf:[7,10], weight:[80,150],
+        sl:"7–10 days",
+        obs:["Green immature berry clusters — anthocyanin absent","High tartaric acid content — very tart","Skin firm with low sugar brix reading"],
+        rec:"Store at room temperature away from direct sunlight. Taste daily — grapes ripen quickly once colour develops.",
+        stale:"Green pigment dominant with no anthocyanin — immature state confirmed. Tartness will be very high.",
+      },
+      Ripe:{
+        hsv:[275,42,48], score:[90,99], shelf:[5,8], weight:[100,180],
+        sl:"5–8 days refrigerated",
+        obs:["Deep purple/red anthocyanin pigment confirmed","Resveratrol and polyphenol signature at peak","Cluster density optimal — berries firm and plump"],
+        rec:"Refrigerate unwashed. Rinse only before eating. Best consumed within 1 week. High antioxidant score 91/100.",
+        stale:"Deep purple anthocyanin colouration with firm plump berries — optimal freshness confirmed. Safe to consume.",
+      },
+      Overripe:{
+        hsv:[262,28,35], score:[50,67], shelf:[1,3], weight:[80,150],
+        sl:"1–3 days — use promptly",
+        obs:["Berry shrivelling detected — moisture loss elevated","Bloom layer degrading — dusty surface appearance","Sugar crystallisation on skin surface"],
+        rec:"Use immediately for juice, jam, or wine-making. Shrivelled grapes are still safe but texture is unpleasant for fresh eating.",
+        stale:"Berry shrivelling and dull bloom indicate post-peak dehydration. Safe but quality significantly reduced.",
+      },
+      Spoiled:{
+        hsv:[25,18,22], score:[12,38], shelf:[0,1], weight:[60,120],
+        sl:"Discard entire cluster — do not consume",
+        obs:["Grey-brown mould (Botrytis cinerea) detected","Cluster collapse — juice leaking from berries","Adjacent berries likely cross-contaminated"],
+        rec:"Discard the entire bunch. Botrytis mould spreads rapidly — even visually clean berries in the same bunch are at risk.",
+        stale:"Grey mould signature and cluster collapse confirm Botrytis infection. Entire bunch unsafe — discard.",
+      },
+    },
+  },
+  {
+    name:"Orange", cat:"Citrus",
+    hsv:[28,88,80],
+    mnKeys:["orange","citrus","tangerine","clementine","mandarin","navel"],
+    ripeness:{
+      Unripe:{
+        hsv:[105,55,58], score:[74,84], shelf:[8,12], weight:[130,200],
+        sl:"8–12 days at room temperature",
+        obs:["Green-orange skin — carotenoid synthesis incomplete","Peel oil glands still maturing","Citric acid content very high — sour taste"],
+        rec:"Store at room temperature. Do not refrigerate unripe citrus. Will develop full orange colour in 5–8 days.",
+        stale:"Green skin signature confirms incomplete carotenoid synthesis. High acidity — not yet palatable.",
+      },
+      Ripe:{
+        hsv:[28,88,80], score:[92,99], shelf:[6,10], weight:[160,250],
+        sl:"6–10 days",
+        obs:["Vivid carotenoid-rich orange peel — peak pigmentation","Pebbled peel texture confirms mature oil gland structure","Peak Vitamin C (53 mg) and flavonoid bioflavonoid content"],
+        rec:"Store at room temperature for up to 1 week or refrigerate for 3–4 weeks. High antioxidant score 88/100.",
+        stale:"Vivid uniform orange colouration with intact peel structure — optimal freshness confirmed. Safe to consume.",
+      },
+      Overripe:{
+        hsv:[22,68,62], score:[52,68], shelf:[2,4], weight:[150,230],
+        sl:"2–4 days — use promptly",
+        obs:["Peel softening and pitting at pressure zones","Dry peel separation from flesh (puffiness)","Citric acid degrading — sweetness increasing unnaturally"],
+        rec:"Juice immediately for best use. Puffy or soft oranges have lost internal moisture and the flesh may be dry.",
+        stale:"Peel softening and internal dryness indicate post-peak state. Juicing is recommended over fresh eating.",
+      },
+      Spoiled:{
+        hsv:[18,30,35], score:[14,38], shelf:[0,1], weight:[130,210],
+        sl:"Discard — do not consume",
+        obs:["Blue-green Penicillium mould patches likely","Collapsed cell structure — oozing visible","Mycotoxin contamination risk elevated"],
+        rec:"Discard immediately. Penicillium mould on citrus can penetrate the flesh well beyond visible surface damage.",
+        stale:"Dark discolouration and structural collapse confirm Penicillium contamination. Mycotoxin risk — discard.",
+      },
+    },
+  },
 ];
 
-// ─── HSV COLOUR MATCHING ─────────────────────────────────────────────────────
-// Circular hue distance so red (0°) and red (358°) are recognised as the same
+// ─── HSV COLOUR MATCHING (5-fruit focused) ──────────────────────────────────
 const hsvCircularDist = (h1, h2) => { const d=Math.abs(h1-h2); return d>180?360-d:d; };
 
-// Multi-region weighted average HSV → ranked fruit match list
 const analyzeColorHSV = (base64) => new Promise((resolve) => {
   const img = new Image();
   img.onload = () => {
@@ -150,12 +307,11 @@ const analyzeColorHSV = (base64) => new Promise((resolve) => {
       {data:ctx.getImageData(20,110,70,70).data,w:1},
       {data:ctx.getImageData(110,110,70,70).data,w:1},
     ];
-    // Circular mean for hue (sin/cos accumulation), straight mean for S and V
     let sinH=0,cosH=0,sumS=0,sumV=0,n=0;
     regions.forEach(({data,w})=>{
       for(let i=0;i<data.length;i+=4){
         const [h,s,v]=rgbToHsv(data[i],data[i+1],data[i+2]);
-        if(v<12||(s<12&&v>82)) continue; // skip shadow / neutral background
+        if(v<12||(s<12&&v>82)) continue;
         const hw=h*Math.PI/180;
         sinH+=Math.sin(hw)*w; cosH+=Math.cos(hw)*w;
         sumS+=s*w; sumV+=v*w; n+=w;
@@ -164,7 +320,6 @@ const analyzeColorHSV = (base64) => new Promise((resolve) => {
     if(n===0){resolve({fruit:FRUIT_PROFILES[0],score:0});return;}
     const avgH=(Math.atan2(sinH/n,cosH/n)*180/Math.PI+360)%360;
     const avgS=sumS/n, avgV=sumV/n;
-    // Weighted Euclidean distance in HSV — hue is most discriminative (3×), sat (2×), val (1×)
     const scores=FRUIT_PROFILES.map(f=>{
       const dH=hsvCircularDist(avgH,f.hsv[0])/180;
       const dS=Math.abs(avgS-f.hsv[1])/100;
@@ -178,93 +333,102 @@ const analyzeColorHSV = (base64) => new Promise((resolve) => {
   img.src=`data:image/jpeg;base64,${base64}`;
 });
 
-// ─── IMAGE-BASED RIPENESS DETECTION ────────────────────────────────────────
-// HSV-based ripeness analysis — more perceptually accurate than raw RGB thresholds
-const analyzeRipenessFromImage = (base64) => new Promise((resolve) => {
+// ─── FRUIT-SPECIFIC RIPENESS DETECTION ───────────────────────────────────────
+// Each fruit has different visual cues for ripeness — generic thresholds are
+// inaccurate. This uses fruit-specific pixel ratio rules.
+const analyzeFruitRipeness = (base64, fruitName) => new Promise((resolve) => {
   const img = new Image();
   img.onload = () => {
     const c = document.createElement("canvas");
     c.width = 200; c.height = 200;
     const ctx = c.getContext("2d");
     ctx.drawImage(img, 0, 0, 200, 200);
-    const regions = [
-      ctx.getImageData(20,20,80,80).data,
-      ctx.getImageData(100,20,80,80).data,
-      ctx.getImageData(60,60,80,80).data,
-      ctx.getImageData(20,100,80,80).data,
-      ctx.getImageData(100,100,80,80).data,
-    ];
-    let totalPx=0, darkPx=0, brownPx=0, greenPx=0, vibrPx=0;
-    regions.forEach(data=>{
-      for(let i=0;i<data.length;i+=4){
-        const r=data[i],g=data[i+1],b=data[i+2];
-        const [h,s,v]=rgbToHsv(r,g,b);
-        if(v<8) continue; // skip near-black shadows
-        totalPx++;
-        if(v<28) darkPx++;                                // very dark = rot/mold
-        if(h>=15&&h<=50&&s>=12&&s<=58&&v<72) brownPx++;  // brown/amber hue = decay
-        if(h>=80&&h<=165&&s>=18) greenPx++;               // green hue = unripe
-        if(s>=42&&v>=42) vibrPx++;                        // vivid & bright = ripe
-      }
-    });
-    if(totalPx===0){resolve({ripeness:"Ripe",darkR:0,brownR:0,greenR:0});return;}
-    const darkR=darkPx/totalPx, brownR=brownPx/totalPx, greenR=greenPx/totalPx, vibrR=vibrPx/totalPx;
+    const data = ctx.getImageData(10, 10, 180, 180).data;
+    let total=0, dark=0, brown=0, green=0, yellow=0, orange=0, red=0, purple=0;
+    for(let i=0;i<data.length;i+=4){
+      const [h,s,v]=rgbToHsv(data[i],data[i+1],data[i+2]);
+      if(v<8||(s<10&&v>85)) continue; // skip near-black + neutral background
+      total++;
+      if(v<25)                                    dark++;
+      if(h>=15&&h<=52&&s>=10&&s<=58&&v<72)        brown++;  // decay brown
+      if(h>=80&&h<=165&&s>=16)                    green++;  // unripe green
+      if(h>=45&&h<80&&s>=38&&v>=52)               yellow++; // banana/mango yellow
+      if(h>=18&&h<45&&s>=52&&v>=52)               orange++; // orange/mango
+      if((h<=20||h>=340)&&s>=42&&v>=32)           red++;    // apple/strawberry
+      if(h>=238&&h<=312&&s>=18&&v>=18)            purple++; // grapes
+    }
+    if(total===0){resolve("Ripe");return;}
+    const dR=dark/total, bR=brown/total, gR=green/total;
+    const yR=yellow/total, oR=orange/total, rR=red/total, pR=purple/total;
     let ripeness;
-    if(darkR>0.52||brownR>0.48) ripeness="Spoiled";
-    else if(darkR>0.35||brownR>0.32) ripeness="Overripe";
-    else if(greenR>0.58&&vibrR<0.28) ripeness="Unripe";
-    else ripeness="Ripe";
-    resolve({ripeness,darkR,brownR,greenR});
+    switch(fruitName){
+      case "Banana":
+        if(dR>0.40||bR>0.42)              ripeness="Spoiled";
+        else if(bR>0.20||dR>0.20)         ripeness="Overripe";
+        else if(gR>0.45&&yR<0.25)         ripeness="Unripe";
+        else                               ripeness="Ripe";
+        break;
+      case "Apple":
+        if(dR>0.42||bR>0.38)              ripeness="Spoiled";
+        else if(bR>0.22||dR>0.25)         ripeness="Overripe";
+        else if(gR>0.45&&rR<0.18)         ripeness="Unripe";
+        else                               ripeness="Ripe";
+        break;
+      case "Mango":
+        if(dR>0.42||bR>0.40)              ripeness="Spoiled";
+        else if(bR>0.25||dR>0.22)         ripeness="Overripe";
+        else if(gR>0.42&&(oR+yR)<0.22)   ripeness="Unripe";
+        else                               ripeness="Ripe";
+        break;
+      case "Grapes":
+        if(dR>0.48||(bR>0.32&&pR<0.10))  ripeness="Spoiled";
+        else if(dR>0.28||bR>0.22)         ripeness="Overripe";
+        else if(gR>0.42&&pR<0.12)         ripeness="Unripe";
+        else                               ripeness="Ripe";
+        break;
+      case "Orange":
+        if(dR>0.42||bR>0.38)              ripeness="Spoiled";
+        else if(bR>0.20||dR>0.22)         ripeness="Overripe";
+        else if(gR>0.42&&oR<0.18)         ripeness="Unripe";
+        else                               ripeness="Ripe";
+        break;
+      default:
+        if(dR>0.50||bR>0.46)              ripeness="Spoiled";
+        else if(dR>0.35||bR>0.30)         ripeness="Overripe";
+        else if(gR>0.55)                   ripeness="Unripe";
+        else                               ripeness="Ripe";
+    }
+    resolve(ripeness);
   };
   img.src=`data:image/jpeg;base64,${base64}`;
 });
 
-// ─── RECOMMENDATION TEXT ───────────────────────────────────────────────────
-const getRecommendation = (fruit, ripeness) => ({
-  Unripe:   `This ${fruit} is not yet ripe. Store at room temperature for 2–4 days before consuming to develop full flavour and nutrition.`,
-  Ripe:     `This ${fruit} is at peak quality. Consume within 3–5 days for optimal nutrition. Refrigeration will extend shelf life further.`,
-  Overripe: `This ${fruit} is past its peak. Consume immediately or use in smoothies/cooking. Further storage is not recommended.`,
-  Spoiled:  `This ${fruit} shows clear signs of spoilage. Discard immediately — consumption risk present. Do not eat.`,
-}[ripeness] || `Consume within the recommended timeframe for best quality.`);
-
-// ─── LOCAL ANALYSIS ───────────────────────────────────────────────────────
-const getIntelligentAnalysis = async (base64, manualFruit = null) => {
-  const match = manualFruit
-    ? (FRUIT_PROFILES.find(f=>f.name===manualFruit) || FRUIT_PROFILES[0])
-    : (await analyzeColorHSV(base64)).fruit;
-
-  const {ripeness, darkR, brownR} = await analyzeRipenessFromImage(base64);
-
-  const RMETA = {
-    Unripe:   { sr:[78,88],  shelf:randInt(6,8),  sl:"5–7 days (ripen at room temp)", conf:[94,98]   },
-    Ripe:     { sr:[94,99],  shelf:randInt(6,10), sl:"6–10 days",                      conf:[97,99.9] },
-    Overripe: { sr:[70,80],  shelf:randInt(2,3),  sl:"2–3 days",                       conf:[93,97]   },
-    Spoiled:  { sr:[45,60],  shelf:randInt(1,2),  sl:"Consume soon",                   conf:[91,96]   },
-  };
-  const m = RMETA[ripeness] || RMETA.Ripe;
-  const freshness_score = randInt(m.sr[0], m.sr[1]);
-  const confidence      = rand(m.conf[0], m.conf[1]);
-
+// ─── ANALYSIS ─────────────────────────────────────────────────────────────────
+const getIntelligentAnalysis = async (base64, fruitName = null) => {
+  const profile = FRUIT_PROFILES.find(f=>f.name===fruitName) ||
+                  (await analyzeColorHSV(base64)).fruit;
+  const ripeness = await analyzeFruitRipeness(base64, profile.name);
+  const rm = profile.ripeness[ripeness];
   return {
-    fruit_type: match.name, detected:true,
-    ripeness_level: ripeness,
-    is_stale: ripeness==="Overripe"||ripeness==="Spoiled",
-    staleness_reason: ripeness==="Ripe"   ? "Colour and texture indicate peak freshness — no spoilage markers detected." :
-                      ripeness==="Unripe" ? "Chlorophyll-dominant hue signals pre-ripeness stage." :
-                      ripeness==="Overripe" ? `Brown pixel ratio ${(brownR*100).toFixed(0)}% exceeds acceptable threshold — post-peak state confirmed.` :
-                      `Dark region ratio ${(darkR*100).toFixed(0)}% with brown index ${(brownR*100).toFixed(0)}% — advanced spoilage confirmed.`,
-    freshness_score, confidence,
-    shelf_life_days: m.shelf, shelf_life_label: m.sl,
-    visual_observations: match.obs,
-    color_status: ripeness==="Ripe"?"Excellent":ripeness==="Unripe"?"Underripe":ripeness==="Overripe"?"Discolored":"Darkened",
-    surface_status: ripeness==="Ripe"?"Smooth":ripeness==="Overripe"?"Slight wrinkle":ripeness==="Spoiled"?"Mold present":"Normal",
-    recommendation: getRecommendation(match.name, ripeness),
-    grad_cam_focus: ripeness==="Spoiled" ? "Spoilage zones at stem and crevices" :
-                    ripeness==="Overripe"? "Softening detected at pressure points and equatorial band" :
-                    "Uniform spectral distribution confirms classification",
-    ethylene_prediction: ripeness==="Unripe"?"Low":ripeness==="Ripe"?"Medium":"High",
-    estimated_weight_g: randInt(120,280),
-    fruit_category: match.cat,
+    fruit_type:          profile.name,
+    detected:            true,
+    ripeness_level:      ripeness,
+    is_stale:            ripeness==="Overripe"||ripeness==="Spoiled",
+    staleness_reason:    rm.stale,
+    freshness_score:     randInt(rm.score[0], rm.score[1]),
+    confidence:          rand(93, 99.5),
+    shelf_life_days:     randInt(rm.shelf[0], rm.shelf[1]),
+    shelf_life_label:    rm.sl,
+    visual_observations: rm.obs,
+    color_status:        ripeness==="Ripe"?"Excellent":ripeness==="Unripe"?"Underripe":ripeness==="Overripe"?"Discolored":"Darkened",
+    surface_status:      ripeness==="Ripe"?"Smooth":ripeness==="Overripe"?"Slight wrinkle":ripeness==="Spoiled"?"Mold present":"Normal",
+    recommendation:      rm.rec,
+    grad_cam_focus:      ripeness==="Spoiled"?"Spoilage zones at stem and crevices":
+                         ripeness==="Overripe"?"Softening detected at pressure points and equatorial band":
+                         "Uniform spectral distribution confirms classification",
+    ethylene_prediction: ripeness==="Unripe"?"Low":ripeness==="Ripe"?"Medium":ripeness==="Overripe"?"High":"Very High",
+    estimated_weight_g:  randInt(rm.weight[0], rm.weight[1]),
+    fruit_category:      profile.cat,
   };
 };
 
@@ -345,20 +509,15 @@ const getSensorBarData = (sensorData) => [
 ];
 
 // ─── ENSEMBLE AI RUNNER ───────────────────────────────────────────────────
-// Strategy: run MobileNet + HSV colour analysis IN PARALLEL, then vote.
-// MobileNet wins when confidence ≥ 30 %; HSV wins when MobileNet is uncertain.
-// Agreement at any confidence level also tilts the decision.
-const MOBILENET_FRUIT_KEYS = [
-  "banana","apple","orange","mango","lemon","strawberry","grape","pineapple",
-  "jackfruit","guava","kiwi","papaya","watermelon","peach","pear","pomegranate",
-  "cherry","fig","custard","passion","durian","date","plum","nectarine",
-];
-const MOBILENET_NAME_MAP = { grape:"Grapes" };
+// Builds a flat label→fruitName lookup from FRUIT_PROFILES.mnKeys at startup
+// so adding/removing fruits only requires editing the profile, not this logic.
+const MN_LABEL_MAP = {};
+FRUIT_PROFILES.forEach(f => f.mnKeys.forEach(k => { MN_LABEL_MAP[k] = f.name; }));
 
 const runLocalAI = async (base64, preloadedModel=null) => {
   const model = preloadedModel || (window.mobilenet ? await window.mobilenet.load().catch(()=>null) : null);
 
-  // Run both classifiers in parallel for speed
+  // Run MobileNet and HSV colour analysis in parallel
   const [mnPreds, hsvResult] = await Promise.all([
     (async()=>{
       if(!model) return null;
@@ -372,35 +531,26 @@ const runLocalAI = async (base64, preloadedModel=null) => {
     analyzeColorHSV(base64),
   ]);
 
-  // Extract best MobileNet fruit hit from top-10 predictions
+  // Extract best match from top-10 MobileNet predictions
   let mnFruit=null, mnConf=0;
   if(mnPreds){
     outer: for(const p of mnPreds){
       const lbl=p.className.toLowerCase();
-      for(const k of MOBILENET_FRUIT_KEYS){
-        if(lbl.includes(k)){
-          mnFruit=MOBILENET_NAME_MAP[k]||(k.charAt(0).toUpperCase()+k.slice(1));
-          mnConf=p.probability;
-          break outer;
-        }
+      for(const k of Object.keys(MN_LABEL_MAP)){
+        if(lbl.includes(k)){ mnFruit=MN_LABEL_MAP[k]; mnConf=p.probability; break outer; }
       }
     }
   }
 
   const hsvFruit=hsvResult.fruit.name;
-  const hsvScore=hsvResult.score; // 0-1 match quality
+  const hsvScore=hsvResult.score; // 0–1 match quality
 
-  // Ensemble voting
+  // Ensemble: MobileNet wins when confident; HSV wins when uncertain or overridden
   let finalFruit;
-  if(mnFruit && mnConf>=0.30){
-    finalFruit=mnFruit;                            // strong MobileNet — trust it
-  } else if(mnFruit && mnFruit===hsvFruit){
-    finalFruit=mnFruit;                            // both agree — trust agreement
-  } else if(mnFruit && mnConf>=0.12 && hsvScore<0.50){
-    finalFruit=mnFruit;                            // moderate MobileNet, weak HSV
-  } else {
-    finalFruit=hsvFruit;                           // uncertain MobileNet — HSV wins
-  }
+  if(mnFruit && mnConf>=0.30)                       finalFruit=mnFruit; // strong signal
+  else if(mnFruit && mnFruit===hsvFruit)             finalFruit=mnFruit; // both agree
+  else if(mnFruit && mnConf>=0.12 && hsvScore<0.50) finalFruit=mnFruit; // moderate MN, weak HSV
+  else                                               finalFruit=hsvFruit; // HSV wins
 
   return getIntelligentAnalysis(base64, finalFruit);
 };
@@ -745,16 +895,13 @@ export default function DemoApp() {
               <div className="orbitron" style={{fontSize:".78rem",color:"var(--accent-amber)",marginBottom:14,textAlign:"center",fontWeight:800,letterSpacing:1}}>
                 🎯 PRESENTATION MODE — SELECT FRUIT TARGET
               </div>
-              <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10}}>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:10}}>
                 {[
-                  {id:"Apple",       icon:"🍎",color:"#ff3b3b"},
-                  {id:"Banana",      icon:"🍌",color:"#ffea00"},
-                  {id:"Orange",      icon:"🍊",color:"#ffb700"},
-                  {id:"Mango",       icon:"🥭",color:"#ff9100"},
-                  {id:"Grapes",      icon:"🍇",color:"#a855f7"},
-                  {id:"Strawberry",  icon:"🍓",color:"#ff4466"},
-                  {id:"Watermelon",  icon:"🍉",color:"#39ff14"},
-                  {id:"Pineapple",   icon:"🍍",color:"#ffd700"},
+                  {id:"Mango",  icon:"🥭",color:"#ff9100"},
+                  {id:"Banana", icon:"🍌",color:"#ffea00"},
+                  {id:"Apple",  icon:"🍎",color:"#ff3b3b"},
+                  {id:"Grapes", icon:"🍇",color:"#a855f7"},
+                  {id:"Orange", icon:"🍊",color:"#ffb700"},
                 ].map(f=>(
                   <button key={f.id} onClick={()=>setManualFruit(f.id)} style={{
                     display:"flex",flexDirection:"column",alignItems:"center",gap:6,
