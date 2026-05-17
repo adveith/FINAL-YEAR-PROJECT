@@ -193,7 +193,7 @@ const FRUIT_PROFILES = [
   },
   {
     name:"Mango", cat:"Tropical", ripeHsv:[42,80,82],
-    mnKeys:["mango"],
+    mnKeys:[],
     ripeness:{
       Unripe:{
         hsv:[100,55,55], score:[73,84], shelf:[5,8], weight:[200,350],
@@ -227,7 +227,7 @@ const FRUIT_PROFILES = [
   },
   {
     name:"Grapes", cat:"Berry", ripeHsv:[275,42,48],
-    mnKeys:["grape","grapes","berry cluster","vine fruit","concord"],
+    mnKeys:[],
     ripeness:{
       Unripe:{
         hsv:[115,40,52], score:[72,83], shelf:[7,10], weight:[80,150],
@@ -295,52 +295,106 @@ const FRUIT_PROFILES = [
   },
 ];
 
-// ─── HSV COLOUR MATCHING ─────────────────────────────────────────────────────
-const hsvCircularDist = (h1, h2) => { const d=Math.abs(h1-h2); return d>180?360-d:d; };
+// ─── MULTI-FEATURE COLOUR CLASSIFIER ────────────────────────────────────────
+// 7 colour zones: red | orange | orange-yellow | yellow | green | purple | dark
+//
+// Key insight: banana (pure yellow H 50-72), orange (pure orange H 18-38), and
+// mango (mixed orange-yellow H 38-50 + yellow) are separated by the orange-yellow
+// bucket that sits between them.  Mango and grapes are NOT in ImageNet-1K so
+// MobileNet cannot detect them — colour analysis is their sole classifier.
+//
+// Each fruit has 2-3 colour profiles (ripe / unripe / semi-ripe). Score =
+// best L1-similarity across all profiles for that fruit.
+//
+// Profile vector indices: [red, orange, orangeYellow, yellow, green, purple, dark]
+const FRUIT_COLOR_PROFILES = {
+  Apple:  [
+    [0.63, 0.04, 0.02, 0.02, 0.12, 0.00, 0.15], // ripe red
+    [0.03, 0.01, 0.01, 0.02, 0.84, 0.00, 0.09], // unripe green
+    [0.29, 0.03, 0.02, 0.03, 0.47, 0.00, 0.16], // bicolour red-green
+  ],
+  Banana: [
+    [0.00, 0.01, 0.06, 0.83, 0.03, 0.00, 0.07], // ripe yellow (pure, H 50-72 dominant)
+    [0.00, 0.00, 0.03, 0.06, 0.84, 0.00, 0.07], // unripe green
+    [0.00, 0.02, 0.10, 0.38, 0.04, 0.00, 0.46], // overripe brown-yellow
+  ],
+  Orange: [
+    [0.02, 0.85, 0.07, 0.01, 0.02, 0.00, 0.03], // ripe orange (H 18-38 dominant)
+    [0.01, 0.24, 0.05, 0.02, 0.62, 0.00, 0.06], // unripe green-orange
+  ],
+  Mango:  [
+    [0.00, 0.14, 0.38, 0.36, 0.05, 0.00, 0.07], // ripe yellow-orange (H 38-50 mix)
+    [0.00, 0.02, 0.04, 0.06, 0.80, 0.00, 0.08], // unripe green
+    [0.01, 0.26, 0.30, 0.26, 0.08, 0.00, 0.09], // semi-ripe orange dominant
+  ],
+  Grapes: [
+    [0.02, 0.00, 0.00, 0.00, 0.02, 0.82, 0.14], // ripe purple/dark-purple
+    [0.00, 0.01, 0.03, 0.04, 0.81, 0.02, 0.09], // green grapes
+    [0.01, 0.01, 0.01, 0.01, 0.03, 0.44, 0.49], // overripe/very dark
+  ],
+};
 
-// Multi-region, saturation-weighted HSV circular mean → best fruit type match
-const analyzeColorHSV = (base64) => new Promise((resolve) => {
+const analyzeColorMultiFeature = (base64) => new Promise((resolve) => {
   const img = new Image();
   img.onload = () => {
+    const SZ = 224;
     const canvas = document.createElement("canvas");
-    canvas.width = 200; canvas.height = 200;
+    canvas.width = SZ; canvas.height = SZ;
     const ctx = canvas.getContext("2d");
-    ctx.drawImage(img, 0, 0, 200, 200);
-    // Centre 3×, inner-ring 1.5×, four corner quadrants 1× — fruit-focused
+    ctx.drawImage(img, 0, 0, SZ, SZ);
+
+    // Three regions: tight centre (4×), mid-crop (2×), full image (1×)
     const regions = [
-      {data:ctx.getImageData(65,65,70,70).data, w:3},   // tight centre
-      {data:ctx.getImageData(50,50,100,100).data,w:1.5},// mid ring
-      {data:ctx.getImageData(15,15,70,70).data, w:1},
-      {data:ctx.getImageData(115,15,70,70).data,w:1},
-      {data:ctx.getImageData(15,115,70,70).data,w:1},
-      {data:ctx.getImageData(115,115,70,70).data,w:1},
+      { data: ctx.getImageData(56, 56, 112, 112).data, w: 4 },
+      { data: ctx.getImageData(28, 28, 168, 168).data, w: 2 },
+      { data: ctx.getImageData(0,  0,  SZ,  SZ ).data, w: 1 },
     ];
-    let sinH=0,cosH=0,sumS=0,sumV=0,n=0;
-    regions.forEach(({data,w})=>{
-      for(let i=0;i<data.length;i+=4){
-        const [h,s,v]=rgbToHsv(data[i],data[i+1],data[i+2]);
-        if(v<12||(s<20&&v>75)) continue; // skip shadow + neutral/white background
-        const pw=w*(0.3+s/120);          // vivid pixels dominate
-        const hw=h*Math.PI/180;
-        sinH+=Math.sin(hw)*pw; cosH+=Math.cos(hw)*pw;
-        sumS+=s*pw; sumV+=v*pw; n+=pw;
+
+    // bk = [red, orange, orangeYellow, yellow, green, purple, dark]
+    const bk = [0, 0, 0, 0, 0, 0, 0];
+    let total = 0;
+
+    for (const { data, w } of regions) {
+      for (let i = 0; i < data.length; i += 4) {
+        const [h, s, v] = rgbToHsv(data[i], data[i+1], data[i+2]);
+        if (v < 12 || (s < 20 && v > 74)) continue; // skip background
+
+        const pw = w * (0.35 + s / 130); // saturated pixels weighted higher
+
+        if      ((h < 18 || h >= 338) && s >= 38 && v >= 25) { bk[0] += pw; } // red
+        else if (h >= 18 && h < 38 && s >= 50 && v >= 38)    { bk[1] += pw; } // orange
+        else if (h >= 38 && h < 50 && s >= 42 && v >= 52)    { bk[2] += pw; } // orange-yellow
+        else if (h >= 50 && h < 72 && s >= 40 && v >= 55)    { bk[3] += pw; } // yellow
+        else if (h >= 72 && h < 160 && s >= 24 && v >= 25)   { bk[4] += pw; } // green
+        else if (h >= 228 && h < 312 && s >= 15 && v >= 12)  { bk[5] += pw; } // purple
+        else if (v < 44 || (h >= 10 && h < 60 && s >= 6 && s <= 50 && v < 68)) { bk[6] += pw; } // dark/brown
+        else continue; // skip ambiguous (teal, magenta, etc.)
+
+        total += pw;
       }
+    }
+
+    if (total < 60) { resolve({ fruit: FRUIT_PROFILES[0], score: 0.1 }); return; }
+
+    const norm = bk.map(x => x / total);
+
+    // Score each fruit: best L1-similarity across all its colour profiles
+    const fruitScores = FRUIT_PROFILES.map(fp => {
+      const profiles = FRUIT_COLOR_PROFILES[fp.name] || [];
+      let best = 0;
+      for (const p of profiles) {
+        let d = 0;
+        for (let i = 0; i < 7; i++) d += Math.abs(norm[i] - p[i]);
+        const sim = 1 - d / 2; // L1 max-dist=2, normalise to [0,1]
+        if (sim > best) best = sim;
+      }
+      return { fruit: fp, score: best };
     });
-    if(n===0){resolve({fruit:FRUIT_PROFILES[0],score:0});return;}
-    const avgH=(Math.atan2(sinH/n,cosH/n)*180/Math.PI+360)%360;
-    const avgS=sumS/n, avgV=sumV/n;
-    // Weighted Euclidean distance: hue 3×, saturation 2×, value 1×
-    const scores=FRUIT_PROFILES.map(f=>{
-      const dH=hsvCircularDist(avgH,f.ripeHsv[0])/180;
-      const dS=Math.abs(avgS-f.ripeHsv[1])/100;
-      const dV=Math.abs(avgV-f.ripeHsv[2])/100;
-      const dist=Math.sqrt(dH*dH*3+dS*dS*2+dV*dV);
-      return {fruit:f, score:Math.max(0,1-dist/2.2)};
-    });
-    scores.sort((a,b)=>b.score-a.score);
-    resolve(scores[0]);
+
+    fruitScores.sort((a, b) => b.score - a.score);
+    resolve(fruitScores[0]);
   };
-  img.src=`data:image/jpeg;base64,${base64}`;
+  img.src = `data:image/jpeg;base64,${base64}`;
 });
 
 // ─── RIPENESS SCORE PROFILES ─────────────────────────────────────────────────
@@ -455,7 +509,7 @@ const analyzeFruitRipeness = (base64, fruitName) => new Promise((resolve) => {
 const getIntelligentAnalysis = async (base64, fruitName=null) => {
   const profile = fruitName
     ? (FRUIT_PROFILES.find(f=>f.name===fruitName)||FRUIT_PROFILES[0])
-    : (await analyzeColorHSV(base64)).fruit;
+    : (await analyzeColorMultiFeature(base64)).fruit;
   const ripeness = await analyzeFruitRipeness(base64, profile.name);
   const rm = profile.ripeness[ripeness];
   return {
@@ -558,20 +612,26 @@ const getSensorBarData = (sensorData) => [
 ];
 
 // ─── ENSEMBLE AI RUNNER ───────────────────────────────────────────────────
-// Strategy: run MobileNet + HSV colour analysis IN PARALLEL, then vote.
-// MobileNet wins when confidence ≥ 30 %; HSV wins when MobileNet is uncertain.
-// Agreement at any confidence level also tilts the decision.
-//
-// MN_LABEL_MAP is auto-built from FRUIT_PROFILES[].mnKeys so the label list
-// stays in sync with the supported fruit set — no manual duplication.
+// MN_LABEL_MAP: ImageNet classes that directly correspond to one of the 5 fruits.
+// Mango and Grapes are NOT in ImageNet-1K, so their mnKeys are empty — colour
+// analysis is their sole type classifier.
 const MN_LABEL_MAP = {};
 FRUIT_PROFILES.forEach(f => f.mnKeys.forEach(k => { MN_LABEL_MAP[k] = f.name; }));
+
+// MN_PROXY_MAP: ImageNet classes that are sometimes predicted for our fruits.
+// These are used as WEAK hints only when colour analysis agrees.
+// jackfruit/custard-apple → MobileNet sometimes fires these for mango.
+// fig → sometimes fired for dark grape clusters.
+const MN_PROXY_MAP = {
+  "jackfruit": "Mango", "jak": "Mango", "custard apple": "Mango",
+  "fig": "Grapes", "pomegranate": "Grapes",
+};
 
 const runLocalAI = async (base64, preloadedModel=null) => {
   const model = preloadedModel || (window.mobilenet ? await window.mobilenet.load().catch(()=>null) : null);
 
-  // Run both classifiers in parallel for speed
-  const [mnPreds, hsvResult] = await Promise.all([
+  // Run MobileNet and multi-feature colour analysis in parallel
+  const [mnPreds, colorResult] = await Promise.all([
     (async()=>{
       if(!model) return null;
       try{
@@ -581,37 +641,57 @@ const runLocalAI = async (base64, preloadedModel=null) => {
         return await model.classify(img,10);
       }catch(e){console.warn("MobileNet classify failed:",e);return null;}
     })(),
-    analyzeColorHSV(base64),
+    analyzeColorMultiFeature(base64),
   ]);
 
-  // Extract best MobileNet hit — only the 5 supported fruits are matched
+  // Extract best direct MobileNet hit (banana / orange / apple only)
   let mnFruit=null, mnConf=0;
   if(mnPreds){
     outer: for(const p of mnPreds){
       const lbl=p.className.toLowerCase();
       for(const k of Object.keys(MN_LABEL_MAP)){
-        if(lbl.includes(k)){
-          mnFruit=MN_LABEL_MAP[k];
-          mnConf=p.probability;
-          break outer;
-        }
+        if(lbl.includes(k)){ mnFruit=MN_LABEL_MAP[k]; mnConf=p.probability; break outer; }
       }
     }
   }
 
-  const hsvFruit=hsvResult.fruit.name;
-  const hsvScore=hsvResult.score; // 0–1 match quality
+  // Extract best proxy hit (weak hint for mango / grapes)
+  let mnProxyFruit=null, mnProxyConf=0;
+  if(mnPreds && !mnFruit){
+    for(const p of mnPreds){
+      const lbl=p.className.toLowerCase();
+      for(const k of Object.keys(MN_PROXY_MAP)){
+        if(lbl.includes(k) && p.probability>=0.08){
+          mnProxyFruit=MN_PROXY_MAP[k]; mnProxyConf=p.probability; break;
+        }
+      }
+      if(mnProxyFruit) break;
+    }
+  }
 
-  // Ensemble voting — 4-rule cascade
+  const colorFruit = colorResult.fruit.name;
+  const colorScore = colorResult.score; // 0–1 similarity
+
+  // ── ENSEMBLE DECISION (priority-ordered rules) ─────────────────────────────
+  // 1. Strong MobileNet (≥28%) on a fruit it truly knows → trust it
+  // 2. MobileNet + colour agree → trust agreement
+  // 3. Moderate MN (≥14%) and colour is uncertain (<0.58) → MN wins
+  // 4. Colour analysis confident (≥0.70) → trust colour
+  // 5. Proxy hint matches colour → accept proxy
+  // 6. Colour wins (fallback — always has an answer)
   let finalFruit;
-  if(mnFruit && mnConf>=0.30){
-    finalFruit=mnFruit;                          // strong MobileNet → trust it
-  } else if(mnFruit && mnFruit===hsvFruit){
-    finalFruit=mnFruit;                          // both agree → trust agreement
-  } else if(mnFruit && mnConf>=0.12 && hsvScore<0.50){
-    finalFruit=mnFruit;                          // moderate MN, weak HSV → MN wins
+  if(mnFruit && mnConf>=0.28){
+    finalFruit=mnFruit;
+  } else if(mnFruit && mnFruit===colorFruit){
+    finalFruit=mnFruit;
+  } else if(mnFruit && mnConf>=0.14 && colorScore<0.58){
+    finalFruit=mnFruit;
+  } else if(colorScore>=0.70){
+    finalFruit=colorFruit;
+  } else if(mnProxyFruit && mnProxyFruit===colorFruit && mnProxyConf>=0.12){
+    finalFruit=mnProxyFruit;
   } else {
-    finalFruit=hsvFruit;                         // uncertain MN → HSV wins
+    finalFruit=colorFruit;
   }
 
   return getIntelligentAnalysis(base64, finalFruit);
