@@ -109,36 +109,40 @@ const generateSensorReadings = (aiResult) => {
   };
 };
 
-// ─── FRUIT VECTORS (expanded to 16 fruits) ──────────────────────────────────
-const FRUIT_VECTORS = [
-  { name:"Apple",       vector:[200,30,40],   cat:"Pome",    obs:["Red anthocyanin mapping confirmed","Firm skin density detected","Iron content profile — moderate"] },
-  { name:"Banana",      vector:[230,220,60],  cat:"Tropical",obs:["Elongated curvature confirmed","Potassium-rich yellow pigment","Stem node geometry detected"] },
-  { name:"Orange",      vector:[240,150,20],  cat:"Citrus",  obs:["Pebbled peel texture profile","Carotenoid-heavy orange spectrum","High Vitamin C fluorescence"] },
-  { name:"Mango",       vector:[255,190,50],  cat:"Tropical",obs:["Golden-yellow flesh indicators","Oval structural symmetry","High sucrose density signature"] },
-  { name:"Lemon",       vector:[210,240,100], cat:"Citrus",  obs:["High acidity yellow spectrum","Tapered polar ends confirmed","Limonene volatile profile"] },
-  { name:"Grapes",      vector:[120,80,160],  cat:"Berry",   obs:["Clustered spheroid geometry","Resveratrol polyphenol signature","Skin hydration index high"] },
-  { name:"Strawberry",  vector:[220,40,60],   cat:"Berry",   obs:["Bright anthocyanin-rich red","Achene seed pattern visible","High ellagic acid profile"] },
-  { name:"Watermelon",  vector:[60,160,40],   cat:"Tropical",obs:["Deep green rind texture","High lycopene density spectrum","91% water content signature"] },
-  { name:"Pineapple",   vector:[200,180,40],  cat:"Tropical",obs:["Crown geometry detected","Bromelain enzyme profile confirmed","Yellow-green textured exterior"] },
-  { name:"Papaya",      vector:[245,130,80],  cat:"Tropical",obs:["Carotenoid-rich orange flesh","Oval melon structure","Papain enzyme profile present"] },
-  { name:"Kiwi",        vector:[100,140,60],  cat:"Tropical",obs:["Brown fuzzy exterior detected","Chlorophyll-dense interior","Actinidin enzyme signature"] },
-  { name:"Guava",       vector:[140,200,80],  cat:"Tropical",obs:["Green outer skin texture","Very high Vitamin C density","Small seed cluster distribution"] },
-  { name:"Pomegranate", vector:[180,30,30],   cat:"Berry",   obs:["Deep red polyphenol-rich skin","Punicalagin tannin signature","Multi-chamber seed geometry"] },
-  { name:"Pear",        vector:[180,200,80],  cat:"Pome",    obs:["Pyriform curvature detected","Chlorogenic acid phenol profile","Green-yellow skin spectrum"] },
-  { name:"Peach",       vector:[240,160,100], cat:"Stone",   obs:["Fuzzy epicarp texture confirmed","Orange-pink colour blend","Endocarp stone mass inferred"] },
-  { name:"Jackfruit",   vector:[160,190,60],  cat:"Tropical",obs:["Large bumpy exocarp husk","High starch tropical profile","Distinctive volatile ester signature"] },
+// ─── FRUIT PROFILES ──────────────────────────────────────────────────────────
+// hsv = [hue 0-360, sat 0-100, val 0-100] centroid for a ripe specimen
+// Hue-based matching is far more discriminative than RGB distance
+const FRUIT_PROFILES = [
+  { name:"Apple",       cat:"Pome",    hsv:[8,72,65],   obs:["Red anthocyanin mapping confirmed","Firm skin density detected","Iron content profile — moderate"] },
+  { name:"Banana",      cat:"Tropical",hsv:[52,74,85],  obs:["Elongated curvature confirmed","Potassium-rich yellow pigment","Stem node geometry detected"] },
+  { name:"Orange",      cat:"Citrus",  hsv:[28,88,80],  obs:["Pebbled peel texture profile","Carotenoid-heavy orange spectrum","High Vitamin C fluorescence"] },
+  { name:"Mango",       cat:"Tropical",hsv:[42,80,82],  obs:["Golden-yellow flesh indicators","Oval structural symmetry","High sucrose density signature"] },
+  { name:"Lemon",       cat:"Citrus",  hsv:[58,80,88],  obs:["High acidity yellow spectrum","Tapered polar ends confirmed","Limonene volatile profile"] },
+  { name:"Grapes",      cat:"Berry",   hsv:[275,42,48], obs:["Clustered spheroid geometry","Resveratrol polyphenol signature","Skin hydration index high"] },
+  { name:"Strawberry",  cat:"Berry",   hsv:[6,85,72],   obs:["Bright anthocyanin-rich red","Achene seed pattern visible","High ellagic acid profile"] },
+  { name:"Watermelon",  cat:"Tropical",hsv:[115,52,52], obs:["Deep green rind texture","High lycopene density spectrum","91% water content signature"] },
+  { name:"Pineapple",   cat:"Tropical",hsv:[48,68,78],  obs:["Crown geometry detected","Bromelain enzyme profile confirmed","Yellow-green textured exterior"] },
+  { name:"Papaya",      cat:"Tropical",hsv:[32,78,78],  obs:["Carotenoid-rich orange flesh","Oval melon structure","Papain enzyme profile present"] },
+  { name:"Kiwi",        cat:"Tropical",hsv:[30,38,42],  obs:["Brown fuzzy exterior detected","Chlorophyll-dense interior","Actinidin enzyme signature"] },
+  { name:"Guava",       cat:"Tropical",hsv:[88,40,68],  obs:["Green outer skin texture","Very high Vitamin C density","Small seed cluster distribution"] },
+  { name:"Pomegranate", cat:"Berry",   hsv:[5,80,58],   obs:["Deep red polyphenol-rich skin","Punicalagin tannin signature","Multi-chamber seed geometry"] },
+  { name:"Pear",        cat:"Pome",    hsv:[78,42,72],  obs:["Pyriform curvature detected","Chlorogenic acid phenol profile","Green-yellow skin spectrum"] },
+  { name:"Peach",       cat:"Stone",   hsv:[32,72,82],  obs:["Fuzzy epicarp texture confirmed","Orange-pink colour blend","Endocarp stone mass inferred"] },
+  { name:"Jackfruit",   cat:"Tropical",hsv:[52,58,72],  obs:["Large bumpy exocarp husk","High starch tropical profile","Distinctive volatile ester signature"] },
 ];
 
-// ─── COLOR ANALYSIS ────────────────────────────────────────────────────────
-// Multi-region HSV-weighted sampling for better fruit colour matching
-const analyzeDominantColor = (base64) => new Promise((resolve) => {
+// ─── HSV COLOUR MATCHING ─────────────────────────────────────────────────────
+// Circular hue distance so red (0°) and red (358°) are recognised as the same
+const hsvCircularDist = (h1, h2) => { const d=Math.abs(h1-h2); return d>180?360-d:d; };
+
+// Multi-region weighted average HSV → ranked fruit match list
+const analyzeColorHSV = (base64) => new Promise((resolve) => {
   const img = new Image();
   img.onload = () => {
     const canvas = document.createElement("canvas");
     canvas.width = 200; canvas.height = 200;
     const ctx = canvas.getContext("2d");
     ctx.drawImage(img, 0, 0, 200, 200);
-    // Center region weighted 2×, four quadrants 1× each
     const regions = [
       {data:ctx.getImageData(60,60,80,80).data, w:2},
       {data:ctx.getImageData(20,20,70,70).data, w:1},
@@ -146,24 +150,30 @@ const analyzeDominantColor = (base64) => new Promise((resolve) => {
       {data:ctx.getImageData(20,110,70,70).data,w:1},
       {data:ctx.getImageData(110,110,70,70).data,w:1},
     ];
-    let r=0,g=0,b=0,n=0;
+    // Circular mean for hue (sin/cos accumulation), straight mean for S and V
+    let sinH=0,cosH=0,sumS=0,sumV=0,n=0;
     regions.forEach(({data,w})=>{
       for(let i=0;i<data.length;i+=4){
-        const pr=data[i],pg=data[i+1],pb=data[i+2];
-        const [,s,v]=rgbToHsv(pr,pg,pb);
-        // Skip near-black shadow pixels and near-white/grey background
-        if(v<12||(s<12&&v>82)) continue;
-        r+=pr*w; g+=pg*w; b+=pb*w; n+=w;
+        const [h,s,v]=rgbToHsv(data[i],data[i+1],data[i+2]);
+        if(v<12||(s<12&&v>82)) continue; // skip shadow / neutral background
+        const hw=h*Math.PI/180;
+        sinH+=Math.sin(hw)*w; cosH+=Math.cos(hw)*w;
+        sumS+=s*w; sumV+=v*w; n+=w;
       }
     });
-    if(n===0){resolve(FRUIT_VECTORS[0]);return;}
-    const cv=[r/n,g/n,b/n];
-    let best=FRUIT_VECTORS[0], minD=Infinity;
-    FRUIT_VECTORS.forEach(f=>{
-      const d=Math.sqrt((cv[0]-f.vector[0])**2+(cv[1]-f.vector[1])**2+(cv[2]-f.vector[2])**2);
-      if(d<minD){minD=d;best=f;}
+    if(n===0){resolve({fruit:FRUIT_PROFILES[0],score:0});return;}
+    const avgH=(Math.atan2(sinH/n,cosH/n)*180/Math.PI+360)%360;
+    const avgS=sumS/n, avgV=sumV/n;
+    // Weighted Euclidean distance in HSV — hue is most discriminative (3×), sat (2×), val (1×)
+    const scores=FRUIT_PROFILES.map(f=>{
+      const dH=hsvCircularDist(avgH,f.hsv[0])/180;
+      const dS=Math.abs(avgS-f.hsv[1])/100;
+      const dV=Math.abs(avgV-f.hsv[2])/100;
+      const dist=Math.sqrt(dH*dH*3+dS*dS*2+dV*dV);
+      return {fruit:f, score:Math.max(0,1-dist/2.2)};
     });
-    resolve(best);
+    scores.sort((a,b)=>b.score-a.score);
+    resolve(scores[0]);
   };
   img.src=`data:image/jpeg;base64,${base64}`;
 });
@@ -217,11 +227,11 @@ const getRecommendation = (fruit, ripeness) => ({
   Spoiled:  `This ${fruit} shows clear signs of spoilage. Discard immediately — consumption risk present. Do not eat.`,
 }[ripeness] || `Consume within the recommended timeframe for best quality.`);
 
-// ─── LOCAL ANALYSIS (improved fallback) ───────────────────────────────────
+// ─── LOCAL ANALYSIS ───────────────────────────────────────────────────────
 const getIntelligentAnalysis = async (base64, manualFruit = null) => {
   const match = manualFruit
-    ? (FRUIT_VECTORS.find(f=>f.name===manualFruit) || FRUIT_VECTORS[0])
-    : await analyzeDominantColor(base64);
+    ? (FRUIT_PROFILES.find(f=>f.name===manualFruit) || FRUIT_PROFILES[0])
+    : (await analyzeColorHSV(base64)).fruit;
 
   const {ripeness, darkR, brownR} = await analyzeRipenessFromImage(base64);
 
@@ -334,35 +344,65 @@ const getSensorBarData = (sensorData) => [
   {name:"Humidity",  value:sensorData.humidity,      unit:"%",    color:"#39ff14"},
 ];
 
-// ─── LOCAL AI RUNNER ──────────────────────────────────────────────────────
-// Uses preloaded MobileNet model (passed in) for fruit type classification,
-// then applies enhanced HSV colour analysis for ripeness determination.
+// ─── ENSEMBLE AI RUNNER ───────────────────────────────────────────────────
+// Strategy: run MobileNet + HSV colour analysis IN PARALLEL, then vote.
+// MobileNet wins when confidence ≥ 30 %; HSV wins when MobileNet is uncertain.
+// Agreement at any confidence level also tilts the decision.
 const MOBILENET_FRUIT_KEYS = [
   "banana","apple","orange","mango","lemon","strawberry","grape","pineapple",
   "jackfruit","guava","kiwi","papaya","watermelon","peach","pear","pomegranate",
   "cherry","fig","custard","passion","durian","date","plum","nectarine",
 ];
+const MOBILENET_NAME_MAP = { grape:"Grapes" };
 
 const runLocalAI = async (base64, preloadedModel=null) => {
   const model = preloadedModel || (window.mobilenet ? await window.mobilenet.load().catch(()=>null) : null);
-  if(model){
-    try{
-      const img=new Image();
-      img.src=`data:image/jpeg;base64,${base64}`;
-      await new Promise(r=>{img.onload=r;});
-      const preds=await model.classify(img,10);
-      for(const p of preds){
-        const lbl=p.className.toLowerCase();
-        for(const k of MOBILENET_FRUIT_KEYS){
-          if(lbl.includes(k)){
-            const name=k==="grape"?"Grapes":k.charAt(0).toUpperCase()+k.slice(1);
-            return getIntelligentAnalysis(base64, name);
-          }
+
+  // Run both classifiers in parallel for speed
+  const [mnPreds, hsvResult] = await Promise.all([
+    (async()=>{
+      if(!model) return null;
+      try{
+        const img=new Image();
+        img.src=`data:image/jpeg;base64,${base64}`;
+        await new Promise(r=>{img.onload=r;});
+        return await model.classify(img,10);
+      }catch(e){console.warn("MobileNet classify failed:",e);return null;}
+    })(),
+    analyzeColorHSV(base64),
+  ]);
+
+  // Extract best MobileNet fruit hit from top-10 predictions
+  let mnFruit=null, mnConf=0;
+  if(mnPreds){
+    outer: for(const p of mnPreds){
+      const lbl=p.className.toLowerCase();
+      for(const k of MOBILENET_FRUIT_KEYS){
+        if(lbl.includes(k)){
+          mnFruit=MOBILENET_NAME_MAP[k]||(k.charAt(0).toUpperCase()+k.slice(1));
+          mnConf=p.probability;
+          break outer;
         }
       }
-    }catch(e){console.warn("MobileNet classify failed:",e);}
+    }
   }
-  return getIntelligentAnalysis(base64);
+
+  const hsvFruit=hsvResult.fruit.name;
+  const hsvScore=hsvResult.score; // 0-1 match quality
+
+  // Ensemble voting
+  let finalFruit;
+  if(mnFruit && mnConf>=0.30){
+    finalFruit=mnFruit;                            // strong MobileNet — trust it
+  } else if(mnFruit && mnFruit===hsvFruit){
+    finalFruit=mnFruit;                            // both agree — trust agreement
+  } else if(mnFruit && mnConf>=0.12 && hsvScore<0.50){
+    finalFruit=mnFruit;                            // moderate MobileNet, weak HSV
+  } else {
+    finalFruit=hsvFruit;                           // uncertain MobileNet — HSV wins
+  }
+
+  return getIntelligentAnalysis(base64, finalFruit);
 };
 
 // ─── COMPONENT ────────────────────────────────────────────────────────────
