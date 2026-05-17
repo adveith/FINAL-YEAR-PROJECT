@@ -4,9 +4,8 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell
 } from "recharts";
 import {
-  Cpu, Camera, Smartphone, Monitor, Activity, RefreshCw, AlertTriangle, CheckCircle,
-  XCircle, Leaf, Scale, Wind, Eye, History, Key, TrendingUp, Info,
-  Thermometer, FlaskConical
+  Cpu, Camera, Smartphone, Monitor, Activity, RefreshCw, CheckCircle,
+  XCircle, Leaf, Scale, Wind, Eye, History, TrendingUp, FlaskConical
 } from "lucide-react";
 
 // ─── STYLES ────────────────────────────────────────────────────────────────
@@ -42,6 +41,20 @@ const STYLES = `
 // ─── UTILS ──────────────────────────────────────────────────────────────────
 const rand    = (min, max) => Math.round((Math.random() * (max - min) + min) * 10) / 10;
 const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+
+// Perceptually accurate color space for fruit analysis
+const rgbToHsv = (r, g, b) => {
+  r/=255; g/=255; b/=255;
+  const max=Math.max(r,g,b), min=Math.min(r,g,b), d=max-min;
+  let h=0, s=max===0?0:d/max, v=max;
+  if(d>0){
+    if(max===r) h=((g-b)/d+6)%6;
+    else if(max===g) h=(b-r)/d+2;
+    else h=(r-g)/d+4;
+    h*=60;
+  }
+  return [h, s*100, v*100];
+};
 
 // ─── NUTRITIONAL DATABASE (per 100g) ────────────────────────────────────────
 const FRUIT_NUTRITION_DB = {
@@ -96,79 +109,110 @@ const generateSensorReadings = (aiResult) => {
   };
 };
 
-// ─── FRUIT VECTORS (expanded to 16 fruits) ──────────────────────────────────
-const FRUIT_VECTORS = [
-  { name:"Apple",       vector:[200,30,40],   cat:"Pome",    obs:["Red anthocyanin mapping confirmed","Firm skin density detected","Iron content profile — moderate"] },
-  { name:"Banana",      vector:[230,220,60],  cat:"Tropical",obs:["Elongated curvature confirmed","Potassium-rich yellow pigment","Stem node geometry detected"] },
-  { name:"Orange",      vector:[240,150,20],  cat:"Citrus",  obs:["Pebbled peel texture profile","Carotenoid-heavy orange spectrum","High Vitamin C fluorescence"] },
-  { name:"Mango",       vector:[255,190,50],  cat:"Tropical",obs:["Golden-yellow flesh indicators","Oval structural symmetry","High sucrose density signature"] },
-  { name:"Lemon",       vector:[210,240,100], cat:"Citrus",  obs:["High acidity yellow spectrum","Tapered polar ends confirmed","Limonene volatile profile"] },
-  { name:"Grapes",      vector:[120,80,160],  cat:"Berry",   obs:["Clustered spheroid geometry","Resveratrol polyphenol signature","Skin hydration index high"] },
-  { name:"Strawberry",  vector:[220,40,60],   cat:"Berry",   obs:["Bright anthocyanin-rich red","Achene seed pattern visible","High ellagic acid profile"] },
-  { name:"Watermelon",  vector:[60,160,40],   cat:"Tropical",obs:["Deep green rind texture","High lycopene density spectrum","91% water content signature"] },
-  { name:"Pineapple",   vector:[200,180,40],  cat:"Tropical",obs:["Crown geometry detected","Bromelain enzyme profile confirmed","Yellow-green textured exterior"] },
-  { name:"Papaya",      vector:[245,130,80],  cat:"Tropical",obs:["Carotenoid-rich orange flesh","Oval melon structure","Papain enzyme profile present"] },
-  { name:"Kiwi",        vector:[100,140,60],  cat:"Tropical",obs:["Brown fuzzy exterior detected","Chlorophyll-dense interior","Actinidin enzyme signature"] },
-  { name:"Guava",       vector:[140,200,80],  cat:"Tropical",obs:["Green outer skin texture","Very high Vitamin C density","Small seed cluster distribution"] },
-  { name:"Pomegranate", vector:[180,30,30],   cat:"Berry",   obs:["Deep red polyphenol-rich skin","Punicalagin tannin signature","Multi-chamber seed geometry"] },
-  { name:"Pear",        vector:[180,200,80],  cat:"Pome",    obs:["Pyriform curvature detected","Chlorogenic acid phenol profile","Green-yellow skin spectrum"] },
-  { name:"Peach",       vector:[240,160,100], cat:"Stone",   obs:["Fuzzy epicarp texture confirmed","Orange-pink colour blend","Endocarp stone mass inferred"] },
-  { name:"Jackfruit",   vector:[160,190,60],  cat:"Tropical",obs:["Large bumpy exocarp husk","High starch tropical profile","Distinctive volatile ester signature"] },
+// ─── FRUIT PROFILES ──────────────────────────────────────────────────────────
+// hsv = [hue 0-360, sat 0-100, val 0-100] centroid for a ripe specimen
+// Hue-based matching is far more discriminative than RGB distance
+const FRUIT_PROFILES = [
+  { name:"Apple",       cat:"Pome",    hsv:[8,72,65],   obs:["Red anthocyanin mapping confirmed","Firm skin density detected","Iron content profile — moderate"] },
+  { name:"Banana",      cat:"Tropical",hsv:[52,74,85],  obs:["Elongated curvature confirmed","Potassium-rich yellow pigment","Stem node geometry detected"] },
+  { name:"Orange",      cat:"Citrus",  hsv:[28,88,80],  obs:["Pebbled peel texture profile","Carotenoid-heavy orange spectrum","High Vitamin C fluorescence"] },
+  { name:"Mango",       cat:"Tropical",hsv:[42,80,82],  obs:["Golden-yellow flesh indicators","Oval structural symmetry","High sucrose density signature"] },
+  { name:"Lemon",       cat:"Citrus",  hsv:[58,80,88],  obs:["High acidity yellow spectrum","Tapered polar ends confirmed","Limonene volatile profile"] },
+  { name:"Grapes",      cat:"Berry",   hsv:[275,42,48], obs:["Clustered spheroid geometry","Resveratrol polyphenol signature","Skin hydration index high"] },
+  { name:"Strawberry",  cat:"Berry",   hsv:[6,85,72],   obs:["Bright anthocyanin-rich red","Achene seed pattern visible","High ellagic acid profile"] },
+  { name:"Watermelon",  cat:"Tropical",hsv:[115,52,52], obs:["Deep green rind texture","High lycopene density spectrum","91% water content signature"] },
+  { name:"Pineapple",   cat:"Tropical",hsv:[48,68,78],  obs:["Crown geometry detected","Bromelain enzyme profile confirmed","Yellow-green textured exterior"] },
+  { name:"Papaya",      cat:"Tropical",hsv:[32,78,78],  obs:["Carotenoid-rich orange flesh","Oval melon structure","Papain enzyme profile present"] },
+  { name:"Kiwi",        cat:"Tropical",hsv:[30,38,42],  obs:["Brown fuzzy exterior detected","Chlorophyll-dense interior","Actinidin enzyme signature"] },
+  { name:"Guava",       cat:"Tropical",hsv:[88,40,68],  obs:["Green outer skin texture","Very high Vitamin C density","Small seed cluster distribution"] },
+  { name:"Pomegranate", cat:"Berry",   hsv:[5,80,58],   obs:["Deep red polyphenol-rich skin","Punicalagin tannin signature","Multi-chamber seed geometry"] },
+  { name:"Pear",        cat:"Pome",    hsv:[78,42,72],  obs:["Pyriform curvature detected","Chlorogenic acid phenol profile","Green-yellow skin spectrum"] },
+  { name:"Peach",       cat:"Stone",   hsv:[32,72,82],  obs:["Fuzzy epicarp texture confirmed","Orange-pink colour blend","Endocarp stone mass inferred"] },
+  { name:"Jackfruit",   cat:"Tropical",hsv:[52,58,72],  obs:["Large bumpy exocarp husk","High starch tropical profile","Distinctive volatile ester signature"] },
 ];
 
-// ─── COLOR ANALYSIS ────────────────────────────────────────────────────────
-const analyzeDominantColor = (base64) => new Promise((resolve) => {
+// ─── HSV COLOUR MATCHING ─────────────────────────────────────────────────────
+// Circular hue distance so red (0°) and red (358°) are recognised as the same
+const hsvCircularDist = (h1, h2) => { const d=Math.abs(h1-h2); return d>180?360-d:d; };
+
+// Multi-region weighted average HSV → ranked fruit match list
+const analyzeColorHSV = (base64) => new Promise((resolve) => {
   const img = new Image();
   img.onload = () => {
     const canvas = document.createElement("canvas");
-    canvas.width = 100; canvas.height = 100;
+    canvas.width = 200; canvas.height = 200;
     const ctx = canvas.getContext("2d");
-    ctx.drawImage(img, 0, 0, 100, 100);
-    const data = ctx.getImageData(35, 35, 30, 30).data;
-    let r=0,g=0,b=0;
-    for (let i=0;i<data.length;i+=4){r+=data[i];g+=data[i+1];b+=data[i+2];}
-    const n=data.length/4;
-    const cv=[r/n,g/n,b/n];
-    let best=FRUIT_VECTORS[0], minD=Infinity;
-    FRUIT_VECTORS.forEach(f=>{
-      const d=Math.sqrt((cv[0]-f.vector[0])**2+(cv[1]-f.vector[1])**2+(cv[2]-f.vector[2])**2);
-      if(d<minD){minD=d;best=f;}
+    ctx.drawImage(img, 0, 0, 200, 200);
+    const regions = [
+      {data:ctx.getImageData(60,60,80,80).data, w:2},
+      {data:ctx.getImageData(20,20,70,70).data, w:1},
+      {data:ctx.getImageData(110,20,70,70).data,w:1},
+      {data:ctx.getImageData(20,110,70,70).data,w:1},
+      {data:ctx.getImageData(110,110,70,70).data,w:1},
+    ];
+    // Circular mean for hue (sin/cos accumulation), straight mean for S and V
+    let sinH=0,cosH=0,sumS=0,sumV=0,n=0;
+    regions.forEach(({data,w})=>{
+      for(let i=0;i<data.length;i+=4){
+        const [h,s,v]=rgbToHsv(data[i],data[i+1],data[i+2]);
+        if(v<12||(s<12&&v>82)) continue; // skip shadow / neutral background
+        const hw=h*Math.PI/180;
+        sinH+=Math.sin(hw)*w; cosH+=Math.cos(hw)*w;
+        sumS+=s*w; sumV+=v*w; n+=w;
+      }
     });
-    resolve(best);
+    if(n===0){resolve({fruit:FRUIT_PROFILES[0],score:0});return;}
+    const avgH=(Math.atan2(sinH/n,cosH/n)*180/Math.PI+360)%360;
+    const avgS=sumS/n, avgV=sumV/n;
+    // Weighted Euclidean distance in HSV — hue is most discriminative (3×), sat (2×), val (1×)
+    const scores=FRUIT_PROFILES.map(f=>{
+      const dH=hsvCircularDist(avgH,f.hsv[0])/180;
+      const dS=Math.abs(avgS-f.hsv[1])/100;
+      const dV=Math.abs(avgV-f.hsv[2])/100;
+      const dist=Math.sqrt(dH*dH*3+dS*dS*2+dV*dV);
+      return {fruit:f, score:Math.max(0,1-dist/2.2)};
+    });
+    scores.sort((a,b)=>b.score-a.score);
+    resolve(scores[0]);
   };
   img.src=`data:image/jpeg;base64,${base64}`;
 });
 
 // ─── IMAGE-BASED RIPENESS DETECTION ────────────────────────────────────────
+// HSV-based ripeness analysis — more perceptually accurate than raw RGB thresholds
 const analyzeRipenessFromImage = (base64) => new Promise((resolve) => {
   const img = new Image();
   img.onload = () => {
     const c = document.createElement("canvas");
-    c.width = 100; c.height = 100;
+    c.width = 200; c.height = 200;
     const ctx = c.getContext("2d");
-    ctx.drawImage(img, 0, 0, 100, 100);
-
+    ctx.drawImage(img, 0, 0, 200, 200);
     const regions = [
-      ctx.getImageData(10,10,35,35).data, ctx.getImageData(55,10,35,35).data,
-      ctx.getImageData(32,32,36,36).data, ctx.getImageData(10,55,35,35).data,
-      ctx.getImageData(55,55,35,35).data,
+      ctx.getImageData(20,20,80,80).data,
+      ctx.getImageData(100,20,80,80).data,
+      ctx.getImageData(60,60,80,80).data,
+      ctx.getImageData(20,100,80,80).data,
+      ctx.getImageData(100,100,80,80).data,
     ];
-    let totalPx=0, darkPx=0, brownPx=0, greenPx=0;
+    let totalPx=0, darkPx=0, brownPx=0, greenPx=0, vibrPx=0;
     regions.forEach(data=>{
       for(let i=0;i<data.length;i+=4){
         const r=data[i],g=data[i+1],b=data[i+2];
+        const [h,s,v]=rgbToHsv(r,g,b);
+        if(v<8) continue; // skip near-black shadows
         totalPx++;
-        if((r+g+b)/3<70) darkPx++;
-        if(r>110&&g<80&&b<60&&r>g*1.5) brownPx++;
-        if(g>120&&g>r*1.25&&g>b*1.2) greenPx++;
+        if(v<28) darkPx++;                                // very dark = rot/mold
+        if(h>=15&&h<=50&&s>=12&&s<=58&&v<72) brownPx++;  // brown/amber hue = decay
+        if(h>=80&&h<=165&&s>=18) greenPx++;               // green hue = unripe
+        if(s>=42&&v>=42) vibrPx++;                        // vivid & bright = ripe
       }
     });
-    const darkR=darkPx/totalPx, brownR=brownPx/totalPx, greenR=greenPx/totalPx;
+    if(totalPx===0){resolve({ripeness:"Ripe",darkR:0,brownR:0,greenR:0});return;}
+    const darkR=darkPx/totalPx, brownR=brownPx/totalPx, greenR=greenPx/totalPx, vibrR=vibrPx/totalPx;
     let ripeness;
-    // Very conservative thresholds — default strongly to "Ripe"
-    if(darkR>0.60||brownR>0.55) ripeness="Spoiled";
-    else if(darkR>0.45||brownR>0.40) ripeness="Overripe";
-    else if(greenR>0.70) ripeness="Unripe";
+    if(darkR>0.52||brownR>0.48) ripeness="Spoiled";
+    else if(darkR>0.35||brownR>0.32) ripeness="Overripe";
+    else if(greenR>0.58&&vibrR<0.28) ripeness="Unripe";
     else ripeness="Ripe";
     resolve({ripeness,darkR,brownR,greenR});
   };
@@ -183,11 +227,11 @@ const getRecommendation = (fruit, ripeness) => ({
   Spoiled:  `This ${fruit} shows clear signs of spoilage. Discard immediately — consumption risk present. Do not eat.`,
 }[ripeness] || `Consume within the recommended timeframe for best quality.`);
 
-// ─── LOCAL ANALYSIS (improved fallback) ───────────────────────────────────
+// ─── LOCAL ANALYSIS ───────────────────────────────────────────────────────
 const getIntelligentAnalysis = async (base64, manualFruit = null) => {
   const match = manualFruit
-    ? (FRUIT_VECTORS.find(f=>f.name===manualFruit) || FRUIT_VECTORS[0])
-    : await analyzeDominantColor(base64);
+    ? (FRUIT_PROFILES.find(f=>f.name===manualFruit) || FRUIT_PROFILES[0])
+    : (await analyzeColorHSV(base64)).fruit;
 
   const {ripeness, darkR, brownR} = await analyzeRipenessFromImage(base64);
 
@@ -261,109 +305,6 @@ const enhanceImageBase64 = (base64) => new Promise((resolve) => {
   img.src = `data:image/jpeg;base64,${base64}`;
 });
 
-// ─── CLAUDE VISION API (primary detector) ─────────────────────────────────
-const analyzeWithAI = async (base64, apiKey) => {
-  const resp = await fetch("https://api.anthropic.com/v1/messages", {
-    method:"POST",
-    headers:{
-      "Content-Type":"application/json",
-      "anthropic-version":"2023-06-01",
-      "x-api-key": apiKey,
-      "anthropic-dangerous-direct-browser-access":"true"
-    },
-    body: JSON.stringify({
-      model:"claude-sonnet-4-6",
-      max_tokens:2000,
-      messages:[{
-        role:"user",
-        content:[
-          {type:"image",source:{type:"base64",media_type:"image/jpeg",data:base64}},
-          {type:"text",text:`You are a precision agricultural AI with expert-level fruit identification and quality assessment capabilities. Analyse this image with maximum accuracy.
-
-━━━ IDENTIFICATION GUIDE ━━━
-Match the exact fruit you see against these visual signatures:
-
-• Banana      → elongated curved fruit; green=unripe, yellow=ripe, brown patches=overripe, mostly black=spoiled
-• Apple       → round fruit with stem; red/green/yellow skin; bruised dark soft areas=overripe
-• Orange      → round citrus with textured orange peel; pale/green tinge=unripe
-• Mango       → large oval stone fruit; green/yellow/red-orange blend; wrinkled=overripe
-• Grapes      → small round berries in tight clusters; green/red/purple; shrivelled=overripe
-• Strawberry  → red heart-shaped berry with tiny seeds (achenes) on surface; white/green tip=unripe
-• Watermelon  → large oval melon; dark green striped rind; thumping hollow inside
-• Pineapple   → oval with rough scaly golden-brown exterior and green crown leaves
-• Lemon       → small oval bright yellow citrus with slightly bumpy skin
-• Lime        → small round bright green citrus
-• Kiwi        → small oval with brown fuzzy exterior; inside is vibrant green with black seeds
-• Papaya      → large oval with smooth yellow-orange skin; green=unripe
-• Pear        → teardrop/pyriform shape; green or yellow-green skin with rough texture near base
-• Peach       → round with velvety soft skin; orange-pink gradient with a crease line
-• Pomegranate → round with thick leathery deep-red or pink skin; crown at top
-• Guava       → small oval or round; pale green to yellow skin; pinkish flesh visible if cut
-• Cherry      → small round deep red or dark purple fruit; long thin stem
-• Jackfruit   → very large spiky green/yellow exterior
-• Blueberry   → tiny round dark blue/purple berry; dusty bloom on skin
-• Raspberry   → small red cluster of drupelets forming cone shape
-
-━━━ RIPENESS SCALE ━━━
-Unripe  → mostly green, hard, underdeveloped colour, no aroma cues visible
-Ripe    → vivid natural colour, firm but yielding shape, no blemishes
-Overripe→ soft spots, brown/dark patches >20% surface, wrinkled or shrivelled skin, dull colour
-Spoiled → visible mould (white/grey/green fuzz), >50% dark discolouration, collapsed structure, oozing liquid
-
-━━━ SCORING GUIDE ━━━
-freshness_score: 92-100=perfect peak quality | 75-91=good, consume soon | 50-74=fair, use immediately | 25-49=poor, overripe | 0-24=unsafe, discard
-confidence: your certainty in the fruit_type identification (0-100)
-
-━━━ CRITICAL RULES ━━━
-1. The fruit may be real OR shown on a phone/screen/photo — identify it either way
-2. Scan the ENTIRE image; report the most prominent fruit
-3. Be specific: name exact colours, textures, blemishes you actually observe
-4. Never default to a generic fruit — only report what you genuinely see
-5. If no fruit is clearly visible, return detected: false
-
-Return ONLY this JSON — no markdown, no backticks, no commentary:
-{
-  "fruit_type": "exact fruit name e.g. Banana",
-  "detected": true,
-  "ripeness_level": "Unripe OR Ripe OR Overripe OR Spoiled",
-  "is_stale": false,
-  "staleness_reason": "One precise sentence citing the specific visual evidence for freshness or spoilage",
-  "freshness_score": 0-100,
-  "confidence": 0-100,
-  "shelf_life_days": 0-14,
-  "shelf_life_label": "e.g. 5-7 days OR Consume today OR Do not consume",
-  "visual_observations": ["precise observation 1 with colour/texture detail", "precise observation 2", "precise observation 3"],
-  "color_status": "Excellent OR Normal OR Discolored OR Browning OR Darkened",
-  "surface_status": "Smooth OR Slight wrinkle OR Mold present OR Severely damaged",
-  "recommendation": "One clear actionable safety and consumption recommendation",
-  "grad_cam_focus": "The specific region that most strongly indicates quality, e.g. stem area shows browning",
-  "ethylene_prediction": "Low OR Medium OR High OR Very High",
-  "estimated_weight_g": 100-500,
-  "fruit_category": "Citrus OR Tropical OR Berry OR Stone OR Pome OR Other"
-}`}
-        ]
-      }]
-    })
-  });
-
-  if(!resp.ok){
-    const e=await resp.text().catch(()=>"unknown");
-    let msg="API error";
-    try{msg=JSON.parse(e)?.error?.message||e.substring(0,180);}catch{}
-    throw new Error(`Claude API ${resp.status}: ${msg}`);
-  }
-
-  const data=await resp.json();
-  const raw=data.content.filter(b=>b.type==="text").map(b=>b.text).join("");
-  const clean=raw.replace(/```json\s*/gi,"").replace(/```\s*/gi,"").trim();
-  const jm=clean.match(/\{[\s\S]*\}/);
-  if(!jm) throw new Error("No JSON in AI response");
-  const parsed=JSON.parse(jm[0]);
-  if(!parsed.fruit_type?.trim()) throw new Error("AI did not identify a fruit type");
-  parsed.detected=parsed.detected!==false;
-  parsed.is_stale=parsed.is_stale??(parsed.ripeness_level==="Overripe"||parsed.ripeness_level==="Spoiled");
-  return parsed;
-};
 
 // ─── ANALYSIS HELPERS ──────────────────────────────────────────────────────
 const getRadarData = (aiResult, sensorData) => {
@@ -403,28 +344,65 @@ const getSensorBarData = (sensorData) => [
   {name:"Humidity",  value:sensorData.humidity,      unit:"%",    color:"#39ff14"},
 ];
 
-// ─── LOCAL AI RUNNER ──────────────────────────────────────────────────────
-const runLocalAI = async (base64) => {
-  if(window.mobilenet){
-    try{
-      const model=await window.mobilenet.load();
-      const img=new Image();
-      img.src=`data:image/jpeg;base64,${base64}`;
-      await new Promise(r=>{img.onload=r;});
-      const preds=await model.classify(img);
-      const keys=["banana","apple","orange","mango","lemon","strawberry","grape","pineapple","jackfruit","guava","kiwi","papaya","watermelon","peach","pear","pomegranate"];
-      for(const p of preds){
-        const lbl=p.className.toLowerCase();
-        for(const k of keys){
-          if(lbl.includes(k)){
-            const name=k.charAt(0).toUpperCase()+k.slice(1);
-            return getIntelligentAnalysis(base64, name);
-          }
+// ─── ENSEMBLE AI RUNNER ───────────────────────────────────────────────────
+// Strategy: run MobileNet + HSV colour analysis IN PARALLEL, then vote.
+// MobileNet wins when confidence ≥ 30 %; HSV wins when MobileNet is uncertain.
+// Agreement at any confidence level also tilts the decision.
+const MOBILENET_FRUIT_KEYS = [
+  "banana","apple","orange","mango","lemon","strawberry","grape","pineapple",
+  "jackfruit","guava","kiwi","papaya","watermelon","peach","pear","pomegranate",
+  "cherry","fig","custard","passion","durian","date","plum","nectarine",
+];
+const MOBILENET_NAME_MAP = { grape:"Grapes" };
+
+const runLocalAI = async (base64, preloadedModel=null) => {
+  const model = preloadedModel || (window.mobilenet ? await window.mobilenet.load().catch(()=>null) : null);
+
+  // Run both classifiers in parallel for speed
+  const [mnPreds, hsvResult] = await Promise.all([
+    (async()=>{
+      if(!model) return null;
+      try{
+        const img=new Image();
+        img.src=`data:image/jpeg;base64,${base64}`;
+        await new Promise(r=>{img.onload=r;});
+        return await model.classify(img,10);
+      }catch(e){console.warn("MobileNet classify failed:",e);return null;}
+    })(),
+    analyzeColorHSV(base64),
+  ]);
+
+  // Extract best MobileNet fruit hit from top-10 predictions
+  let mnFruit=null, mnConf=0;
+  if(mnPreds){
+    outer: for(const p of mnPreds){
+      const lbl=p.className.toLowerCase();
+      for(const k of MOBILENET_FRUIT_KEYS){
+        if(lbl.includes(k)){
+          mnFruit=MOBILENET_NAME_MAP[k]||(k.charAt(0).toUpperCase()+k.slice(1));
+          mnConf=p.probability;
+          break outer;
         }
       }
-    }catch(e){console.warn("MobileNet failed:",e);}
+    }
   }
-  return getIntelligentAnalysis(base64);
+
+  const hsvFruit=hsvResult.fruit.name;
+  const hsvScore=hsvResult.score; // 0-1 match quality
+
+  // Ensemble voting
+  let finalFruit;
+  if(mnFruit && mnConf>=0.30){
+    finalFruit=mnFruit;                            // strong MobileNet — trust it
+  } else if(mnFruit && mnFruit===hsvFruit){
+    finalFruit=mnFruit;                            // both agree — trust agreement
+  } else if(mnFruit && mnConf>=0.12 && hsvScore<0.50){
+    finalFruit=mnFruit;                            // moderate MobileNet, weak HSV
+  } else {
+    finalFruit=hsvFruit;                           // uncertain MobileNet — HSV wins
+  }
+
+  return getIntelligentAnalysis(base64, finalFruit);
 };
 
 // ─── COMPONENT ────────────────────────────────────────────────────────────
@@ -445,19 +423,25 @@ export default function DemoApp() {
   const [gaugeValue,     setGaugeValue]     = useState(0);
   const [manualFruit,    setManualFruit]    = useState(null);
   const [stream,         setStream]         = useState(null);
-  const [apiKey,         setApiKey]         = useState(() => localStorage.getItem("sf_claude_key")||"");
-  const [showApiModal,   setShowApiModal]   = useState(false);
-  const [tempApiKey,     setTempApiKey]     = useState("");
 
   const videoRef    = useRef(null);
   const fileInputRef= useRef(null);
+  const modelRef    = useRef(null);
 
   useEffect(()=>{
     const t=setInterval(()=>setSysStatus({cpu:Math.round(28+Math.random()*15),mem:Math.round((1.0+Math.random()*0.8)*10)/10,temp:Math.round(38+Math.random()*14)}),3000);
     return ()=>clearInterval(t);
   },[]);
 
-  useEffect(()=>{if(appMode==="boot")setTimeout(()=>setAppMode("home"),1200);},[appMode]);
+  useEffect(()=>{
+    if(appMode==="boot"){
+      // Preload MobileNet in background while the boot splash is shown
+      if(window.mobilenet && !modelRef.current){
+        window.mobilenet.load().then(m=>{modelRef.current=m;}).catch(()=>{});
+      }
+      setTimeout(()=>setAppMode("home"),1800);
+    }
+  },[appMode]);
 
   useEffect(()=>{
     if(stream&&videoRef.current){
@@ -524,14 +508,6 @@ export default function DemoApp() {
     img.src=url;
   };
 
-  const saveApiKey=()=>{
-    const k=tempApiKey.trim();
-    localStorage.setItem("sf_claude_key",k);
-    setApiKey(k);
-    setShowApiModal(false);
-    setTempApiKey("");
-  };
-
   const runAnalysis=async()=>{
     if(!capturedImage)return;
     setIsLoading(true);
@@ -553,24 +529,14 @@ export default function DemoApp() {
       }
 
       let result;
-      const savedKey=localStorage.getItem("sf_claude_key");
 
       if(manualFruit){
         result=await getIntelligentAnalysis(capturedImage,manualFruit);
-      } else if(savedKey){
-        try{
-          setCurrentStep("🔬  Enhancing image quality...");
-          const enhanced=await enhanceImageBase64(capturedImage);
-          setCurrentStep("🤖  Claude Vision AI analysing...");
-          result=await analyzeWithAI(enhanced,savedKey);
-        }catch(apiErr){
-          console.warn("Claude API failed, using local fallback:",apiErr.message);
-          setCurrentStep("🔄  Local colour analysis fallback...");
-          result=await runLocalAI(capturedImage);
-          setAnalysisError(`Note: Claude API unavailable — ${apiErr.message.substring(0,80)}. Using local colour model; accuracy may vary.`);
-        }
       } else {
-        result=await runLocalAI(capturedImage);
+        setCurrentStep("🔬  Enhancing image quality...");
+        const enhanced=await enhanceImageBase64(capturedImage);
+        setCurrentStep("🤖  MobileNet + HSV analysis...");
+        result=await runLocalAI(enhanced, modelRef.current);
       }
 
       if(result.is_stale===undefined){
@@ -630,11 +596,11 @@ export default function DemoApp() {
           <div style={{height:"100%",background:"var(--accent-green)",animation:"scanline 1.5s infinite"}}/>
         </div>
         <div className="dm-mono" style={{fontSize:".8rem",color:"var(--text-muted)",lineHeight:2}}>
-          {"> Loading AI models... ✓"}<br/>
+          {"> Loading TensorFlow.js... ✓"}<br/>
+          {"> Preloading MobileNet v2... ✓"}<br/>
           {"> Calibrating sensors... ✓"}<br/>
           {"> Initialising Orin NX... ✓"}<br/>
-          {"> Claude Vision API ready... ✓"}<br/>
-          {"> System ready."}
+          {"> On-device AI ready — 100% free."}
         </div>
       </div>
     </div>
@@ -664,10 +630,6 @@ export default function DemoApp() {
         )}
 
         <div style={{display:"flex",gap:8}}>
-          <button className="btn-demo btn-outline-demo" style={{padding:"6px 12px",fontSize:".68rem",borderColor:apiKey?"var(--accent-green)":"var(--accent-amber)",color:apiKey?"var(--accent-green)":"var(--accent-amber)"}}
-            onClick={()=>{setTempApiKey(apiKey);setShowApiModal(true);}}>
-            <Key size={13}/> {apiKey?"API ACTIVE":"ADD KEY"}
-          </button>
           {scanHistory.length>0&&(
             <button className="btn-demo btn-outline-demo" style={{padding:"6px 12px",fontSize:".68rem"}} onClick={()=>setAppMode("history")}>
               <History size={13}/> ({scanHistory.length})
@@ -686,12 +648,10 @@ export default function DemoApp() {
           <div style={{textAlign:"center",animation:"fade-in-up .6s ease"}}>
             <h1 className="orbitron" style={{fontSize:"2.4rem",marginBottom:10}}>Analysis System</h1>
             <p className="dm-mono" style={{color:"var(--text-muted)",marginBottom:12}}>Multimodal Edge-AI Fruit Freshness & Quality Detection</p>
-            {!apiKey&&(
-              <div style={{display:"inline-flex",alignItems:"center",gap:10,background:"rgba(255,183,0,0.1)",border:"1px solid var(--accent-amber)",borderRadius:8,padding:"8px 16px",marginBottom:28}}>
-                <Info size={14} color="var(--accent-amber)"/>
-                <span className="dm-mono" style={{fontSize:".72rem",color:"var(--accent-amber)"}}>Add a Claude API key above for accurate AI fruit detection</span>
-              </div>
-            )}
+            <div style={{display:"inline-flex",alignItems:"center",gap:10,background:"rgba(57,255,20,0.08)",border:"1px solid var(--accent-green)",borderRadius:8,padding:"8px 16px",marginBottom:28}}>
+              <CheckCircle size={14} color="var(--accent-green)"/>
+              <span className="dm-mono" style={{fontSize:".72rem",color:"var(--accent-green)"}}>On-device AI — MobileNet v2 + HSV analysis — 100% free, no API key needed</span>
+            </div>
 
             <div style={{width:220,height:300,background:"var(--bg-card)",border:"1px solid var(--accent-green)",borderRadius:20,margin:"0 auto 40px",position:"relative",overflow:"hidden",boxShadow:"0 0 30px rgba(57,255,20,.1)"}}>
               <div className="scan-line"/>
@@ -725,21 +685,6 @@ export default function DemoApp() {
         {appMode==="camera"&&(
           <div style={{animation:"fade-in-up .5s ease"}}>
 
-            {/* API key banner — shown only when no key is stored */}
-            {!apiKey&&(
-              <div style={{marginBottom:16,padding:"12px 18px",background:"rgba(255,183,0,.1)",border:"1px solid var(--accent-amber)",borderRadius:10,display:"flex",alignItems:"center",justifyContent:"space-between",gap:12}}>
-                <div style={{display:"flex",alignItems:"center",gap:10}}>
-                  <AlertTriangle size={16} color="var(--accent-amber)"/>
-                  <span className="dm-mono" style={{fontSize:".74rem",color:"var(--accent-amber)"}}>
-                    No Claude API key — running local colour model only. Add a key for full AI accuracy.
-                  </span>
-                </div>
-                <button className="btn-demo btn-outline-demo" style={{padding:"5px 12px",fontSize:".65rem",borderColor:"var(--accent-amber)",color:"var(--accent-amber)",flexShrink:0}}
-                  onClick={()=>{setTempApiKey(apiKey);setShowApiModal(true);}}>
-                  <Key size={12}/> ADD KEY
-                </button>
-              </div>
-            )}
 
             {isJetsonConn&&(
               <div className="glass-card" style={{marginBottom:20,padding:"10px 20px",borderLeft:"4px solid var(--accent-amber)",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
@@ -1227,42 +1172,6 @@ export default function DemoApp() {
         </div>
       )}
 
-      {/* ── API KEY MODAL ──────────────────────────────────────────────────── */}
-      {showApiModal&&(
-        <div style={{position:"fixed",inset:0,zIndex:2000,background:"rgba(0,0,0,.85)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
-          <div className="glass-card" style={{width:"100%",maxWidth:460,border:"1px solid var(--accent-amber)"}}>
-            <div className="orbitron" style={{fontSize:"1rem",color:"var(--accent-amber)",marginBottom:8,display:"flex",alignItems:"center",gap:10}}>
-              <Key size={18}/> CLAUDE API KEY SETUP
-            </div>
-            <p className="dm-mono" style={{fontSize:".74rem",color:"var(--text-muted)",lineHeight:1.6,marginBottom:18}}>
-              Enter your Anthropic API key to enable Claude Vision for accurate AI fruit detection.
-              The key is stored in your browser (localStorage) and never sent anywhere except directly to the Anthropic API.
-            </p>
-            <input
-              type="password"
-              value={tempApiKey}
-              onChange={e=>setTempApiKey(e.target.value)}
-              placeholder="sk-ant-api03-..."
-              onKeyDown={e=>e.key==="Enter"&&saveApiKey()}
-              style={{width:"100%",background:"var(--bg-panel)",border:"1px solid rgba(255,183,0,.3)",borderRadius:8,padding:"10px 14px",color:"var(--text-primary)",fontFamily:"DM Mono,monospace",fontSize:".82rem",outline:"none",boxSizing:"border-box",marginBottom:14}}
-            />
-            {apiKey&&(
-              <div className="dm-mono" style={{fontSize:".68rem",color:"var(--accent-green)",marginBottom:12}}>
-                ✓ Current key: {apiKey.substring(0,12)}...{apiKey.slice(-4)}
-              </div>
-            )}
-            <div style={{display:"flex",gap:12}}>
-              <button className="btn-demo btn-primary-demo" style={{flex:1,background:"var(--accent-amber)",color:"#000"}} onClick={saveApiKey}>SAVE & ACTIVATE</button>
-              <button className="btn-demo btn-outline-demo" style={{flex:1,borderColor:"var(--text-muted)",color:"var(--text-muted)"}} onClick={()=>{setShowApiModal(false);setTempApiKey("");}}>CANCEL</button>
-            </div>
-            {apiKey&&(
-              <button style={{background:"none",border:"none",color:"var(--accent-red)",fontSize:".68rem",cursor:"pointer",marginTop:12,fontFamily:"DM Mono,monospace",padding:0}} onClick={()=>{localStorage.removeItem("sf_claude_key");setApiKey("");setShowApiModal(false);}}>
-                × REMOVE STORED KEY
-              </button>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* ── ERROR TOAST ───────────────────────────────────────────────────── */}
       {analysisError&&appMode!=="results"&&(
