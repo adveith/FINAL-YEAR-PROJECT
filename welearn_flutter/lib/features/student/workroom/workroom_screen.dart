@@ -1,20 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shimmer/shimmer.dart';
 import '../../../core/api/api_client.dart';
 import '../../../core/api/api_endpoints.dart';
+import 'package:file_picker/file_picker.dart';
 
 final _workroomsProvider = FutureProvider<List<dynamic>>((ref) async {
   final client = ref.read(apiClientProvider);
   final res = await client.get(ApiEndpoints.workrooms);
   final data = res.data as Map<String, dynamic>;
   return data['workrooms'] as List<dynamic>? ?? [];
-});
-
-final _workroomDetailProvider = FutureProvider.family<Map<String, dynamic>, String>((ref, workroomId) async {
-  final client = ref.read(apiClientProvider);
-  final res = await client.get(ApiEndpoints.workroomById(workroomId));
-  return res.data as Map<String, dynamic>;
 });
 
 class StudentWorkroomScreen extends ConsumerWidget {
@@ -77,7 +73,7 @@ class StudentWorkroomScreen extends ConsumerWidget {
               separatorBuilder: (_, __) => const SizedBox(height: 12),
               itemBuilder: (ctx, i) => _WorkroomCard(
                 workroom: workrooms[i] as Map<String, dynamic>,
-                onTap: () => _openWorkroom(ctx, ref, workrooms[i] as Map<String, dynamic>),
+                onTap: () => _openWorkroom(ctx, workrooms[i] as Map<String, dynamic>),
               ),
             ),
           );
@@ -90,11 +86,11 @@ class StudentWorkroomScreen extends ConsumerWidget {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      builder: (_) => _CreateWorkroomSheet(ref: ref),
+      builder: (_) => _CreateWorkroomSheet(outerRef: ref),
     );
   }
 
-  void _openWorkroom(BuildContext context, WidgetRef ref, Map<String, dynamic> workroom) {
+  void _openWorkroom(BuildContext context, Map<String, dynamic> workroom) {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => _WorkroomDetailPage(workroom: workroom)),
@@ -113,7 +109,7 @@ class _WorkroomCard extends StatelessWidget {
     final name = workroom['name'] as String? ?? 'WorkRoom';
     final desc = workroom['description'] as String? ?? '';
     final members = workroom['members'] as List<dynamic>? ?? [];
-    final type = workroom['type'] as String? ?? 'group';
+    final type = workroom['type'] as String? ?? 'general';
     final isPrivate = workroom['isPrivate'] as bool? ?? false;
 
     Color typeColor;
@@ -135,12 +131,8 @@ class _WorkroomCard extends StatelessWidget {
               Row(
                 children: [
                   Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: typeColor.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
+                    width: 44, height: 44,
+                    decoration: BoxDecoration(color: typeColor.withOpacity(0.15), borderRadius: BorderRadius.circular(8)),
                     child: Icon(Icons.workspaces, color: typeColor),
                   ),
                   const SizedBox(width: 12),
@@ -170,7 +162,7 @@ class _WorkroomCard extends StatelessWidget {
                     child: Text(type.replaceAll('_', ' ').toUpperCase(), style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: typeColor)),
                   ),
                   const SizedBox(width: 8),
-                  Icon(Icons.people, size: 14, color: Colors.grey),
+                  const Icon(Icons.people, size: 14, color: Colors.grey),
                   const SizedBox(width: 4),
                   Text('${members.length} members', style: const TextStyle(fontSize: 12, color: Colors.grey)),
                 ],
@@ -236,10 +228,7 @@ class _WorkroomDetailPageState extends ConsumerState<_WorkroomDetailPage> {
           ],
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.people),
-            onPressed: () => _showMembersSheet(context),
-          ),
+          IconButton(icon: const Icon(Icons.people), onPressed: () => _showMembersSheet(context)),
         ],
       ),
       body: Column(
@@ -256,18 +245,21 @@ class _WorkroomDetailPageState extends ConsumerState<_WorkroomDetailPage> {
                       ],
                     ),
                   )
-                : ListView.builder(
-                    controller: _scrollCtrl,
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _messages.length,
-                    itemBuilder: (ctx, i) {
-                      final msg = _messages[i] as Map<String, dynamic>;
-                      final sender = msg['sender'];
-                      final senderName = sender is Map ? sender['name'] as String? ?? 'User' : 'User';
-                      final content = msg['content'] as String? ?? '';
-                      final createdAt = DateTime.tryParse(msg['createdAt'] as String? ?? '');
-                      return _MessageBubble(senderName: senderName, content: content, time: createdAt);
-                    },
+                : RefreshIndicator(
+                    onRefresh: _loadMessages,
+                    child: ListView.builder(
+                      controller: _scrollCtrl,
+                      padding: const EdgeInsets.all(16),
+                      itemCount: _messages.length,
+                      itemBuilder: (ctx, i) {
+                        final msg = _messages[i] as Map<String, dynamic>;
+                        final sender = msg['sender'];
+                        final senderName = sender is Map ? sender['name'] as String? ?? 'User' : 'User';
+                        final content = msg['content'] as String? ?? '';
+                        final createdAt = DateTime.tryParse(msg['createdAt'] as String? ?? '');
+                        return _MessageBubble(senderName: senderName, content: content, time: createdAt);
+                      },
+                    ),
                   ),
           ),
           Container(
@@ -337,10 +329,7 @@ class _WorkroomDetailPageState extends ConsumerState<_WorkroomDetailPage> {
           ...members.map((m) {
             final member = m as Map<String, dynamic>;
             final name = member['name'] as String? ?? 'Member';
-            return ListTile(
-              leading: CircleAvatar(child: Text(name[0].toUpperCase())),
-              title: Text(name),
-            );
+            return ListTile(leading: CircleAvatar(child: Text(name[0].toUpperCase())), title: Text(name));
           }),
           const SizedBox(height: 16),
         ],
@@ -378,10 +367,7 @@ class _MessageBubble extends StatelessWidget {
                     Text(senderName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                     if (time != null) ...[
                       const SizedBox(width: 8),
-                      Text(
-                        '${time!.hour.toString().padLeft(2, '0')}:${time!.minute.toString().padLeft(2, '0')}',
-                        style: const TextStyle(fontSize: 11, color: Colors.grey),
-                      ),
+                      Text('${time!.hour.toString().padLeft(2, '0')}:${time!.minute.toString().padLeft(2, '0')}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
                     ],
                   ],
                 ),
@@ -408,8 +394,8 @@ class _MessageBubble extends StatelessWidget {
 }
 
 class _CreateWorkroomSheet extends ConsumerStatefulWidget {
-  const _CreateWorkroomSheet({required this.ref});
-  final WidgetRef ref;
+  const _CreateWorkroomSheet({required this.outerRef});
+  final WidgetRef outerRef;
 
   @override
   ConsumerState<_CreateWorkroomSheet> createState() => _CreateWorkroomSheetState();
@@ -452,17 +438,9 @@ class _CreateWorkroomSheetState extends ConsumerState<_CreateWorkroomSheet> {
                   decoration: BoxDecoration(color: Theme.of(context).colorScheme.errorContainer, borderRadius: BorderRadius.circular(8)),
                   child: Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.onErrorContainer)),
                 ),
-              TextFormField(
-                controller: _nameCtrl,
-                decoration: const InputDecoration(labelText: 'WorkRoom Name'),
-                validator: (v) => v == null || v.isEmpty ? 'Required' : null,
-              ),
+              TextFormField(controller: _nameCtrl, decoration: const InputDecoration(labelText: 'WorkRoom Name'), validator: (v) => v == null || v.isEmpty ? 'Required' : null),
               const SizedBox(height: 12),
-              TextFormField(
-                controller: _descCtrl,
-                decoration: const InputDecoration(labelText: 'Description (optional)'),
-                maxLines: 2,
-              ),
+              TextFormField(controller: _descCtrl, decoration: const InputDecoration(labelText: 'Description (optional)'), maxLines: 2),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
                 value: _type,
@@ -510,12 +488,10 @@ class _CreateWorkroomSheetState extends ConsumerState<_CreateWorkroomSheet> {
         'type': _type,
         'isPrivate': _isPrivate,
       });
-      ref.invalidate(_workroomsProvider);
+      widget.outerRef.invalidate(_workroomsProvider);
       if (mounted) Navigator.pop(context);
     } catch (e) {
       setState(() { _error = e.toString(); _loading = false; });
     }
   }
 }
-
-import 'package:flutter/scheduler.dart';
