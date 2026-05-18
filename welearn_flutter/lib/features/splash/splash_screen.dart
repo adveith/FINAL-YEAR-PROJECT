@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-
 import '../auth/auth_provider.dart';
-import '../../core/constants/app_constants.dart';
-import '../../core/theme/app_theme.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
@@ -15,127 +12,118 @@ class SplashScreen extends ConsumerStatefulWidget {
 
 class _SplashScreenState extends ConsumerState<SplashScreen>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-  late final Animation<double> _fadeIn;
+  late AnimationController _ctrl;
+  late Animation<double> _opacity;
+  late Animation<double> _scale;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    );
-    _fadeIn = CurvedAnimation(parent: _controller, curve: Curves.easeInOut);
-    _controller.forward();
+    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200));
+    _opacity = Tween<double>(begin: 0, end: 1).animate(CurvedAnimation(parent: _ctrl, curve: const Interval(0, 0.5, curve: Curves.easeIn)));
+    _scale = Tween<double>(begin: 0.7, end: 1).animate(CurvedAnimation(parent: _ctrl, curve: const Interval(0, 0.6, curve: Curves.elasticOut)));
+    _ctrl.forward();
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _ctrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    ref.listen<AsyncValue<AuthState>>(authStateProvider, (_, next) {
-      if (next is AsyncData) {
-        final isAuth = next.value!.isAuthenticated;
-        if (isAuth) {
-          context.go(_homeForRole(next.value!.user?.role));
-        } else {
-          context.go('/login');
-        }
+    // Listen and redirect once auth resolves
+    ref.listen(authStateProvider, (_, next) {
+      if (next.isLoading) return;
+      final state = next.value;
+      if (state == null) return;
+      if (!state.isAuthenticated) {
+        context.go('/login');
+        return;
+      }
+      switch (state.user?.role) {
+        case 'student': context.go('/student'); break;
+        case 'school': context.go('/school'); break;
+        case 'facilitator': context.go('/teacher'); break;
+        case 'counselor': context.go('/counselor'); break;
+        case 'doctor': context.go('/doctor'); break;
+        case 'parent': context.go('/parent'); break;
+        case 'individual': context.go('/individual'); break;
+        case 'admin': context.go('/admin'); break;
+        case 'superadmin': context.go('/superadmin'); break;
+        default: context.go('/login');
       }
     });
 
+    final colors = Theme.of(context).colorScheme;
+
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFF1E40AF), Color(0xFF7C3AED)],
+            colors: [colors.primary, colors.secondary],
           ),
         ),
-        child: FadeTransition(
-          opacity: _fadeIn,
-          child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  width: 100,
-                  height: 100,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(24),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.2),
-                        blurRadius: 20,
-                        offset: const Offset(0, 8),
+        child: Center(
+          child: AnimatedBuilder(
+            animation: _ctrl,
+            builder: (_, __) => Opacity(
+              opacity: _opacity.value,
+              child: Transform.scale(
+                scale: _scale.value,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 96,
+                      height: 96,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black26,
+                            blurRadius: 20,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                  child: const Center(
-                    child: Text(
-                      'WL',
+                      child: Icon(Icons.school_rounded, size: 56, color: colors.primary),
+                    ),
+                    const SizedBox(height: 24),
+                    const Text(
+                      'WeLearn',
                       style: TextStyle(
+                        color: Colors.white,
                         fontSize: 36,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFF2563EB),
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.2,
                       ),
                     ),
-                  ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Learning Reimagined',
+                      style: TextStyle(color: Colors.white70, fontSize: 16, letterSpacing: 0.5),
+                    ),
+                    const SizedBox(height: 48),
+                    const SizedBox(
+                      width: 32,
+                      height: 32,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 3,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white70),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 24),
-                const Text(
-                  'WeLearn',
-                  style: TextStyle(
-                    fontSize: 36,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white,
-                    letterSpacing: -1,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Learning Without Limits',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.white.withOpacity(0.8),
-                    fontWeight: FontWeight.w400,
-                  ),
-                ),
-                const SizedBox(height: 64),
-                const SizedBox(
-                  width: 36,
-                  height: 36,
-                  child: CircularProgressIndicator(
-                    color: Colors.white,
-                    strokeWidth: 2.5,
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         ),
       ),
     );
-  }
-}
-
-String _homeForRole(String? role) {
-  switch (role) {
-    case AppConstants.roleStudent: return '/student/dashboard';
-    case AppConstants.roleSchool: return '/school/dashboard';
-    case AppConstants.roleFacilitator: return '/teacher/dashboard';
-    case AppConstants.roleCounselor: return '/counselor/dashboard';
-    case AppConstants.roleDoctor: return '/doctor/dashboard';
-    case AppConstants.roleParent: return '/parent/dashboard';
-    case AppConstants.roleIndividual: return '/individual/dashboard';
-    case AppConstants.roleAdmin: return '/admin/dashboard';
-    case AppConstants.roleSuperAdmin: return '/superadmin/dashboard';
-    default: return '/login';
   }
 }
